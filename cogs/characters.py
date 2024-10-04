@@ -115,7 +115,6 @@ class Characters(commands.Cog):
                 await response.edit(content=None, embed=embed, view=None)
                 return
             forward = DeletionSelection.forward
-            # TODO: Make this command abort immediately if the user has no characters.
             if forward == "None, cancel!":
                 embed = disnake.Embed(color=(disnake.Color(0x991509)), description="Character initialization aborted!",
                                       title="Oops.")
