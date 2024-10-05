@@ -61,9 +61,7 @@ class Characters(commands.Cog):
         cur.execute(search, player_id)
         fetch = cur.fetchall()
         con.close()
-        print("a")
         if not fetch:
-            print("b")
             embed = disnake.Embed(color=disnake.Color(0xe07e22), description="You have no characters initialized.",
                                   title="Oops!")
             embed.set_author(
@@ -250,7 +248,8 @@ class Characters(commands.Cog):
                     characters.append(result)
         with open("config.json", "r") as config:
             data = json.load(config)
-        if len(results) >= data["config"]["character_limit"]:
+            config.close()
+        if len(results) >= data["config"][f"{ctx.guild.id}"]["characters"]["character_limit"]:
             embed = disnake.Embed(color=(disnake.Color(0x991509)), description="You have reached the character cap!",
                                   title="Oops.")
             embed.add_field(name="Delete a character?", value="Select a character to delete, or cancel the process.")

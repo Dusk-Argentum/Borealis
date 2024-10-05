@@ -38,7 +38,7 @@ bot.remove_command("help")
 
 bot.load_extension("cogs.characters")
 bot.load_extension("cogs.dev")
-# bot.load_extension("cogs.experience")
+bot.load_extension("cogs.experience")
 
 
 if __name__ == "__main__":
