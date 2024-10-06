@@ -171,7 +171,7 @@ class Characters(commands.Cog):
     @commands.command(aliases=["i"], brief="Initializes your character.",
                       help="Initializes a newly created character.", name="initialize", usage="initialize <name>")
     @commands.guild_only()
-    async def initialize(self, ctx, *, character_name: str = None):
+    async def initialize(self, ctx, *, character_name: str = None):  # TODO: Force character names to start with capital
         embed = disnake.Embed(color=disnake.Color(0xe07e22), description="Verifying your character...",
                               title="Please wait...")
         embed.set_author(
@@ -249,7 +249,8 @@ class Characters(commands.Cog):
         with open("config.json", "r") as config:
             data = json.load(config)
             config.close()
-        if len(results) >= data["config"][f"{ctx.guild.id}"]["characters"]["character_limit"]:
+        character_limit = data["config"][f"{ctx.guild.id}"]["characters"]["character_limit"]
+        if len(results) >= character_limit:
             embed = disnake.Embed(color=(disnake.Color(0x991509)), description="You have reached the character cap!",
                                   title="Oops.")
             embed.add_field(name="Delete a character?", value="Select a character to delete, or cancel the process.")
@@ -257,7 +258,7 @@ class Characters(commands.Cog):
                 icon_url=(ctx.author.avatar.url if ctx.author.guild_avatar is None else
                           ctx.author.guild_avater.url), name=ctx.author.nick)
             embed.set_footer(icon_url=ctx.guild.icon.url,
-                             text=f"The character cap is {str(data['config']['character_limit'])}. | {ctx.guild.name}")
+                             text=f"The character cap is {character_limit}. | {ctx.guild.name}")
             embed.set_thumbnail(
                 url="https://bg3.wiki/w/images/thumb/4/4f/Generic_Threat.webp/380px-Generic_Threat.webp.png")
             await response.edit(embed=embed)
@@ -330,7 +331,7 @@ class Characters(commands.Cog):
             return
         cur = con.cursor()
         cur.execute(f"""INSERT INTO characters VALUES ("{character_id}", "{character_name}", {ctx.author.id},
-0,5,2,0,0,0,0,0,0,0,0,0,0)""")
+6500,5,2,1,1,0,0,0,0,0,0,0,0,0,0,0,"","","",0)""")
         con.commit()
         con.close()
         embed = disnake.Embed(color=(disnake.Color(0x31945c)),
