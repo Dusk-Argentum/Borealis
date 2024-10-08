@@ -186,9 +186,9 @@ WHERE player_id = ? AND character_name = ?""", [ctx.author.id, rewarded])
                     [next_experience, ctx.author.id, rewarded])
         con.commit()
         con.close()
-        with open("experience.json", "r") as experience_reference:
-            data = json.load(experience_reference)
-            experience_reference.close()
+        with open("experience.json", "r") as exp:
+            data = json.load(exp)
+            exp.close()
         if final_experience > data["experience"][f"{value_list[1] + 1}"]:
             await Experience.level(self, ctx=ctx, rewarded=rewarded)
         print(f"Dew's experience total is {final_experience}.")
@@ -199,6 +199,29 @@ WHERE player_id = ? AND character_name = ?""", [ctx.author.id, rewarded])
     @staticmethod
     async def level(self, ctx, rewarded):
         print("yey level. woo, etc.")
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            return
+        cur = con.cursor()
+        cur.execute("SELECT experience, level, tier FROM characters WHERE player_id = ? AND character_name = ?",
+                    [ctx.author.id, rewarded])
+        values = cur.fetchall()
+        con.close()
+        value_list = []
+        for value in values[0]:
+            value_list.append(value)
+        with open("experience.json", "r") as exp:
+            data = json.load(exp)
+            exp.close()
+        new_level = 0
+        print(f"exp {value_list[0]}")
+        for level, threshold in data["experience"].items():
+            # print(threshold)
+            if threshold < value_list[0]:
+                new_level = level
+        print(new_level)  # TODO: Dicts are a thing, I should use them
+        # new_level = value_list
 
     @commands.Cog.listener()
     async def on_message(self, ctx):
