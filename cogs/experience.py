@@ -189,16 +189,15 @@ WHERE player_id = ? AND character_name = ?""", [ctx.author.id, rewarded])
         with open("experience.json", "r") as exp:
             data = json.load(exp)
             exp.close()
+        exp = datetime.fromtimestamp(next_experience, tz=None)
         if final_experience > data["experience"][f"{value_list[1] + 1}"]:
             await Experience.level(self, ctx=ctx, rewarded=rewarded)
         print(f"Dew's experience total is {final_experience}.")
-        exp = datetime.fromtimestamp(next_experience, tz=None)
         print(f"Dew will be able to gain experience again at {exp}")
         # print(value_list)
 
     @staticmethod
     async def level(self, ctx, rewarded):
-        print("yey level. woo, etc.")
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -215,13 +214,41 @@ WHERE player_id = ? AND character_name = ?""", [ctx.author.id, rewarded])
             data = json.load(exp)
             exp.close()
         new_level = 0
-        print(f"exp {value_list[0]}")
         for level, threshold in data["experience"].items():
-            # print(threshold)
             if threshold < value_list[0]:
-                new_level = level
-        print(new_level)  # TODO: Dicts are a thing, I should use them
-        # new_level = value_list
+                new_level = int(level)
+        new_tier = 0
+        if new_level >= 17:
+            new_tier = 4
+        elif new_level >= 11:
+            new_tier = 3
+        elif new_level >= 5:
+            new_tier = 2
+        elif new_level < 5:
+            new_tier = 1
+        with open("config.json", "r") as config:
+            data = json.load(config)
+            config.close()
+        leveling = data["config"][str(ctx.guild.id)]["leveling"]
+        channel = None
+        message = None
+        if leveling["channel"] is not False:
+            channel = disnake.utils.get(ctx.guild.channels, id=leveling["channel"])
+        if leveling["message"] is not False:
+            message = re.sub(r"%PING", ctx.author.mention, leveling["message"])
+            message = re.sub(r"%CHAR", rewarded, message)
+            message = re.sub(r"%LVL", str(new_level), message)
+        if channel is not None and message is not None:
+            await channel.send(message)
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            return
+        cur = con.cursor()
+        cur.execute("UPDATE characters SET level = ?, tier = ? WHERE player_id = ? AND character_name = ?",
+                    [new_level, new_tier, ctx.author.id, rewarded])
+        con.commit()
+        con.close()  # TODO: Dicts are a thing, I should use them
 
     @commands.Cog.listener()
     async def on_message(self, ctx):

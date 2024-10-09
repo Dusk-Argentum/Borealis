@@ -228,7 +228,7 @@ class Characters(commands.Cog):
         player_id = [ctx.author.id]
         cur.execute(search, player_id)
         results = cur.fetchall()
-        con.close()
+        con.close()  # TODO: Need to add a guild_id column
         characters = []
         for name in results:
             for result in name:
