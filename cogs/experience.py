@@ -170,7 +170,8 @@ WHERE player_id = ? AND character_name = ?""", [ctx.author.id, rewarded])
         con.commit()
         cur.execute("SELECT experience FROM characters WHERE player_id = ? AND character_name = ?",
                     [ctx.author.id, rewarded])
-        final_experience = cur.fetchall()[0][0]
+        final_experience = cur.fetchall()[0][0]  # TODO: Too lazy to scroll for right place to put it but
+        # TODO: I forgot. OH! Custom experience curves support
         con.close()
         with open("config.json", "r") as config:
             data = json.load(config)
