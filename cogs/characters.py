@@ -35,7 +35,7 @@ class Characters(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(aliases=["d"], brief="Deletes your character.", help="Deletes a selected character.",
+    @commands.command(aliases=["d"], brief="Deletes a character.", help="Deletes a selected character.",
                       name="delete", usage="delete [name]")
     @commands.guild_only()
     async def delete(self, ctx, *, character_name: str = None):
@@ -131,196 +131,167 @@ class Characters(commands.Cog):
                             embed=EmbedBuilder.embed, view=None)
         return
 
-    @commands.command(aliases=["i"], brief="Initializes your character.",
+    @commands.command(aliases=["i"], brief="Initializes a character.",
                       help="Initializes a newly created character.", name="initialize", usage="initialize <name>")
     @commands.guild_only()
     async def initialize(self, ctx, *, character_name: str = None):
-        embed = disnake.Embed(color=disnake.Color(0xe07e22), description="Verifying your character...",
-                              title="Please wait...")
-        embed.set_author(
-            icon_url=ctx.author.avatar.url if ctx.author.guild_avatar is None else ctx.author.guild_avatar.url,
-            name=ctx.author.nick)
-        embed.set_footer(icon_url=ctx.guild.icon.url, text=f"Ideally, you should never see this. | {ctx.guild.name}")
-        embed.set_thumbnail(url="https://bg3.wiki/w/images/thumb/5/5f/Slow.webp/380px-Slow.webp.png")
-        response = await ctx.send(embed=embed)
+        await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description="Please wait.", fields=None,
+                                         footer_text="Ideally, you should never see this.", status="waiting")
+        response = await ctx.send(embed=EmbedBuilder.embed)
         if character_name is None:
-            embed = disnake.Embed(color=(disnake.Color(0x991509)),
-                                  description="You have not specified a character name!", title="Oops.")
-            embed.set_author(
-                icon_url=ctx.author.avatar.url if ctx.author.guild_avatar is None else ctx.author.guild_avatar.url,
-                name=ctx.author.nick)
-            embed.set_footer(icon_url=ctx.guild.icon.url,
-                             text=f"""Please choose a name that is less than or equal to 32 characters long. \
-| {ctx.guild.name}""")
-            embed.set_thumbnail(
-                url="https://bg3.wiki/w/images/thumb/4/4f/Generic_Threat.webp/380px-Generic_Threat.webp.png")
-            await response.edit(embed=embed)
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description="You have not specified a name for your character!",
+                                             fields=None,
+                                             footer_text="Please choose a name that is 32 characters long or less.",
+                                             status="alert")
+            await response.edit(embed=EmbedBuilder.embed)
             return
         if character_name[0].isupper() is False:
-            embed = disnake.Embed(color=(disnake.Color(0x991509)),
-                                  description="Names are proper nouns!", title="Oops.")
-            embed.set_author(
-                icon_url=ctx.author.avatar.url if ctx.author.guild_avatar is None else ctx.author.guild_avatar.url,
-                name=ctx.author.nick)
-            embed.set_footer(icon_url=ctx.guild.icon.url,
-                             text=f"""Please capitalize the first letter of your character's name. \
-| {ctx.guild.name}""")
-            embed.set_thumbnail(
-                url="https://bg3.wiki/w/images/thumb/4/4f/Generic_Threat.webp/380px-Generic_Threat.webp.png")
-            await response.edit(embed=embed)
-            return
+            character_name = character_name.capitalize()
         if len(character_name) > 32:
-            embed = disnake.Embed(color=(disnake.Color(0x991509)),
-                                  description="Your name is too long!", title="Oops.")
-            embed.set_author(
-                icon_url=ctx.author.avatar.url if ctx.author.guild_avatar is None else ctx.author.guild_avatar.url,
-                name=ctx.author.nick)
-            embed.set_footer(icon_url=ctx.guild.icon.url,
-                             text=f"""Please choose a name that is less than or equal to 32 characters long. \
-| {ctx.guild.name}""")
-            embed.set_thumbnail(
-                url="https://bg3.wiki/w/images/thumb/4/4f/Generic_Threat.webp/380px-Generic_Threat.webp.png")
-            await response.edit(embed=embed)
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description="Your name is too long!",
+                                             fields=None,
+                                             footer_text="Please choose a name that is 32 characters long or less.",
+                                             status="alert")
+            await response.edit(embed=EmbedBuilder.embed)
             return
         if character_name == "None, cancel!":
-            embed = disnake.Embed(color=(disnake.Color(0x991509)),
-                                  description="Your name sucks ass!", title="Oops.")
-            embed.set_author(
-                icon_url=ctx.author.avatar.url if ctx.author.guild_avatar is None else ctx.author.guild_avatar.url,
-                name=ctx.author.nick)
-            embed.set_footer(icon_url=ctx.guild.icon.url,
-                             text=f"""Please choose a name that doesn't suck ass.""")
-            embed.set_thumbnail(
-                url="""https://cdn.discordapp.com/attachments/1291623487990927411/1291664640106958898/\
-no_doubles.png?ex=6700ebf0&is=66ff9a70&hm=63351b38b949988071696502b0f101edca7f022dcb6e733dc2eebf3243f386f1&""")
-            await response.edit(embed=embed)
+            ass = "https://cdn.discordapp.com/attachments/1291623487990927411/1291664640106958898/\
+no_doubles.png?ex=6700ebf0&is=66ff9a70&hm=63351b38b949988071696502b0f101edca7f022dcb6e733dc2eebf3243f386f1&"
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=disnake.Color(0x5e0606),
+                                             custom_thumbnail=ass,
+                                             custom_title="Oops!",
+                                             description="Your name sucks ass!",
+                                             fields=None,
+                                             footer_text="Please choose a name that does not suck ass.",
+                                             status=None)
+            await response.edit(embed=EmbedBuilder.embed)
             return
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
-            await response.edit(content="Please try again in a moment.", embed=None, view=None)
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
+        con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT character_name FROM characters WHERE player_id = ? AND guild_id = ?",
+        cur.execute("SELECT * FROM characters WHERE player_id = ? AND guild_id = ?",
                     [ctx.author.id, ctx.guild.id])
-        results = cur.fetchall()
+        characters = [dict(value) for value in cur.fetchall()]
         con.close()
-        characters = []
-        for name in results:
-            for result in name:
-                if character_name.lower() == result.lower():
-                    embed = disnake.Embed(color=(disnake.Color(0x991509)),
-                                          description="You already have a character with that name!", title="Oops.")
-                    embed.set_author(
-                        icon_url=(ctx.author.avatar.url if ctx.author.guild_avatar is None else
-                                  ctx.author.guild_avatar.url), name=ctx.author.nick)
-                    embed.set_footer(icon_url=ctx.guild.icon.url,
-                                     text=f"Please choose a unique name. | {ctx.guild.name}")
-                    embed.set_thumbnail(
-                        url="https://bg3.wiki/w/images/thumb/4/4f/Generic_Threat.webp/380px-Generic_Threat.webp.png")
-                    await response.edit(embed=embed)
-                    return
-                elif character_name.lower() != result.lower():
-                    characters.append(result)
-        with open("config.json", "r") as config:
-            data = json.load(config)
-            config.close()
-        character_limit = data["config"][f"{ctx.guild.id}"]["characters"]["character_limit"]
-        if len(results) >= character_limit:
-            embed = disnake.Embed(color=(disnake.Color(0x991509)), description="You have reached the character cap!",
-                                  title="Oops.")
-            embed.add_field(name="Delete a character?", value="Select a character to delete, or cancel the process.")
-            embed.set_author(
-                icon_url=(ctx.author.avatar.url if ctx.author.guild_avatar is None else
-                          ctx.author.guild_avatar.url), name=ctx.author.nick)
-            embed.set_footer(icon_url=ctx.guild.icon.url,
-                             text=f"The character cap is {character_limit}. | {ctx.guild.name}")
-            embed.set_thumbnail(
-                url="https://bg3.wiki/w/images/thumb/4/4f/Generic_Threat.webp/380px-Generic_Threat.webp.png")
-            await response.edit(embed=embed)
+        for character in characters:
+            if character["character_name"] == character_name:
+                await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None,
+                                                 description="""You already have a character on this server with that \
+name!""", fields=None, footer_text="Please choose a unique name.", status="alert")
+                await response.edit(embed=EmbedBuilder.embed)
+                return
+        try:
+            con = sqlite3.connect("configs.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT * FROM configs WHERE guild_id = ?", [ctx.guild.id])
+        configs = [dict(value) for value in cur.fetchall()][0]
+        con.close()
+        if len(characters) >= int(configs["character_limit"]):  # This is cast to int even though it already IS one
+            # because, of course, PyCharm complains if I don't.
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="You have reached the character cap!",
+                                             fields=None,
+                                             footer_text="""Please choose which character to delete\
+, or cancel the deletion process.""", status="alert")
+            await response.edit(embed=EmbedBuilder.embed)
             view = disnake.ui.View(timeout=30)
             selects = view.add_item(disnake.ui.StringSelect(placeholder="Select which character to delete.", options=[],
                                                             min_values=1, max_values=1))
             selects.children[0].add_option(label="None, cancel!", value="None, cancel!",
                                            description="This option will abort the initialization process.")
             for character in characters:
-                selects.children[0].add_option(label=character, value=character,
-                                               description=f"This option will PERMANENTLY delete {character}!")
+                selects.children[0].add_option(label=character["character_name"], value=character["character_name"],
+                                               description=f"""This option will PERMANENTLY delete \
+{character["character_name"]}!""")
             view = DeletionSelection(ctx=ctx, options=selects.children[0].options)
             await response.edit(view=view)
             timeout = await view.wait()
+            selected = DeletionSelection.selected
             if timeout:
-                embed = disnake.Embed(color=(disnake.Color(0x991509)), description="Character initialization aborted!",
-                                      title="Oops.")
-                embed.set_author(
-                    icon_url=(ctx.author.avatar.url if ctx.author.guild_avatar is None else
-                              ctx.author.guild_avatar.url), name=ctx.author.nick)
-                embed.set_footer(icon_url=ctx.guild.icon.url,
-                                 text=f"Please feel free to try again. | {ctx.guild.name}")
-                embed.set_thumbnail(
-                    url="https://bg3.wiki/w/images/thumb/3/3f/Bane_Spell.webp/380px-Bane_Spell.webp.png")
-                await response.edit(content=None, embed=embed, view=None)
+                selected = "None, cancel!"
+            if selected == "None, cancel!":
+                await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="Character initialization aborted.",
+                                                 fields=None, footer_text="Please feel free to try again.",
+                                                 status="add_failure")
+                await response.edit(embed=EmbedBuilder.embed, view=None)
                 return
-            forward = DeletionSelection.forward
-            if forward == "None, cancel!":
-                embed = disnake.Embed(color=(disnake.Color(0x991509)), description="Character initialization aborted!",
-                                      title="Oops.")
-                embed.set_author(
-                    icon_url=(ctx.author.avatar.url if ctx.author.guild_avatar is None else
-                              ctx.author.guild_avatar.url), name=ctx.author.nick)
-                embed.set_footer(icon_url=ctx.guild.icon.url,
-                                 text=f"Please feel free to try again. | {ctx.guild.name}")
-                embed.set_thumbnail(
-                    url="https://bg3.wiki/w/images/thumb/3/3f/Bane_Spell.webp/380px-Bane_Spell.webp.png")
-                await response.edit(embed=embed, view=None)
+            try:
+                con = sqlite3.connect("characters.db", timeout=30)
+            except OperationalError:
+                await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="Please try again in a moment.",
+                                                 fields=None, footer_text="The database is busy.", status="failure")
+                await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
                 return
-            elif forward != "None, cancel!":
-                try:
-                    con = sqlite3.connect("characters.db", timeout=30)
-                except OperationalError:
-                    await response.edit(content="Please try again in a moment.", embed=None, view=None)
-                    return
-                cur = con.cursor()
-                cur.execute("SELECT experience FROM characters WHERE character_name = ? AND player_id = ?",
-                            (forward, ctx.author.id))
-                experience = cur.fetchall()[0][0]
-                cur.execute(f"DELETE FROM characters WHERE character_name = ? AND player_id = ?",
-                            (forward, ctx.author.id))
-                con.commit()
-                con.close()
-                embed = disnake.Embed(color=(disnake.Color(0x31945c)), description=f"{forward} doesn't feel so good...",
-                                      title="Character deleted!")
-                embed.set_author(
-                    icon_url=(ctx.author.avatar.url if ctx.author.guild_avatar is None else
-                              ctx.author.guild_avatar.url), name=ctx.author.nick)
-                embed.set_footer(icon_url=ctx.guild.icon.url,
-                                 text=f"Your new character will be initialized in a moment. | {ctx.guild.name}")
-                embed.set_thumbnail(
-                    url="https://bg3.wiki/w/images/thumb/2/23/Disintegrate.webp/380px-Disintegrate.webp.png")
-                await response.edit(embed=embed, view=None,
-                                    content=f"-# Was this a mistake? {forward} had {experience} experience.")
+            con.row_factory = sqlite3.Row
+            cur = con.cursor()
+            cur.execute("""SELECT experience FROM characters WHERE character_name = ? AND player_id = ? AND \
+guild_id = ?""", [selected, ctx.author.id, ctx.guild.id])
+            experience = [dict(value) for value in cur.fetchall()][0]
+            cur.execute("DELETE FROM characters WHERE character_name = ? AND player_id = ? AND guild_id = ?",
+                        [selected, ctx.author.id, ctx.guild.id])
+            con.commit()
+            con.close()
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description=f"{selected} doesn't feel so good...",
+                                             fields=None,
+                                             footer_text="Your new character will be initialized in a moment.",
+                                             status="deletion")
+            await response.edit(content=f"-# Was this a mistake? {selected} had {experience["experience"]} experience.",
+                                embed=EmbedBuilder.embed, view=None)
         character_id = uuid.uuid4()
+        starting_experience = 6500
+        for level, minimum in json.loads(configs["experience_curve"]).items():
+            if int(configs["starting_level"]) == level:
+                starting_experience = int(minimum)
+                break
+        starting_tier = 2
+        for tier, threshold in json.loads(configs["tier_thresholds"]).items():
+            if int(configs["starting_level"]) > int(threshold):
+                starting_tier = int(tier)
+        global_switch = 1
+        if len(characters) == [0, 1]:
+            global_switch = 0
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
-            await ctx.send("Please try again in a moment.")
+            await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         cur = con.cursor()
-        cur.execute(f"""INSERT INTO characters VALUES ("{character_id}", "{character_name}", {ctx.author.id},
-{ctx.guild.id},6500,0,5,2,1,1,0,0,0,0,0,0,0,0,0,0,0,"","","")""")
+        cur.execute("""INSERT INTO characters VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0, "[]", "[]")""",
+                    [str(character_id), str(character_name), ctx.author.id, ctx.guild.id, starting_experience,
+                        configs["starting_level"], starting_tier, global_switch])
         con.commit()
         con.close()
-        embed = disnake.Embed(color=(disnake.Color(0x31945c)),
-                              description="Character initialized!", title="Yippee!")
-        embed.set_author(
-            icon_url=(ctx.author.avatar.url if ctx.author.guild_avatar is None else
-                      ctx.author.guild_avatar.url), name=ctx.author.nick)
-        embed.set_footer(icon_url=ctx.guild.icon.url,
-                         text=f"Enjoy playing with {character_name}! | {ctx.guild.name}")
-        embed.set_thumbnail(
-            url="https://bg3.wiki/w/images/thumb/1/14/Bless.webp/380px-Bless.webp.png")
-        await response.edit(embed=embed, view=None)
-        return
+        await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description="Character initialized!",
+                                         fields=None, footer_text=f"Enjoy playing with {character_name}!",
+                                         status="add_success")
+        await response.edit(embed=EmbedBuilder.embed)
 
 
 def setup(bot):

@@ -75,7 +75,7 @@ class EmbedBuilder(disnake.Embed):
         if custom_thumbnail is not None:
             thumbnail = custom_thumbnail
         if custom_title is not None:
-            title = custom_thumbnail
+            title = custom_title
         embed = disnake.Embed(color=color, description=description, title=title)
         if fields is not None:  # Fields code untested, but unnecessary atm.
             for field in fields:
