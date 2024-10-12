@@ -23,233 +23,240 @@ class Experience(commands.Cog):
     async def processing(self, ctx):
         if ctx.author.id == self.bot.user.id:
             return
-        if ctx.author.bot:
+        elif ctx.author.bot:
             return
-        if type(ctx.channel) is disnake.DMChannel:
+        elif type(ctx.channel) is disnake.DMChannel:
             return
-        if ctx.content.startswith(PREFIX):
+        elif ctx.content.startswith(PREFIX):
             return
-        # TODO: Check for if sender is active player?
-        # TODO: Surely, there's more reasons why a message wouldn't be processed at all.
-        print("Processing complete. Moving to config...")
-        await Experience.config(self, ctx=ctx)
+        elif ctx.content.startswith("!"):
+            return
+        for role in ctx.author.roles:
+            if role.name.lower() == "player":
+                break
+        else:
+            return
+        await Experience.bot_config(ctx=ctx)
 
     @staticmethod
-    async def config(self, ctx):
-        with open("config.json", "r") as config:
-            data = json.load(config)
-            config.close()
-        config = data["config"][f"{ctx.guild.id}"]["experience"]
-        dm_choose = False
-        dm_roles = []
-        if config["ooc_messages"]["start"] is not False and config["ooc_messages"]["end"] is not False:
-            pattern = f"\\{config['ooc_messages']['start']}.*\\{config['ooc_messages']['end']}"
+    async def bot_config(ctx):
+        try:
+            con = sqlite3.connect("bot_config.db", timeout=30.0)
+        except OperationalError:
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT * FROM bot_config")
+        banned = [dict(value) for value in cur.fetchall()][0]
+        con.close()
+        banned_users = []
+        banned_guilds = []
+        if banned["banned_users"] is not None:
+            banned_users = json.loads(banned["banned_users"])
+        if banned["banned_guilds"] is not None:
+            banned_guilds = json.loads(banned["banned_guilds"])
+        for user in banned_users:
+            if ctx.author.id == int(user):
+                return
+        for guild in banned_guilds:
+            if ctx.guild.id == int(guild):
+                return
+        await Experience.server_config(ctx=ctx)
+
+    @staticmethod
+    async def server_config(ctx):
+        try:
+            con = sqlite3.connect("server_config.db", timeout=30.0)
+        except OperationalError:
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT * FROM server_config WHERE guild_id = ?", [ctx.guild.id])
+        config = [dict(value) for value in cur.fetchall()][0]
+        if config["ooc_start"] != "0" and config["ooc_end"] != "0":
+            pattern = f"""\\{config["ooc_start"]}.*\\{config["ooc_end"]}"""
             ooc_check = re.search(pattern, ctx.content)
             if ooc_check is not None:
                 return
-        if config["minimum_length"] is not False:
-            if len(ctx.content) < config["minimum_length"]:
+        if int(config["minimum_length"]) != 0:
+            if len(ctx.content) < int(config["minimum_length"]):
                 return
-        if config["ignored_channels"] is not False:
-            for channel_id in config["ignored_channels"]:
-                if ctx.channel.id == channel_id:
+        if config["ignored_channels"] is not None:
+            ignored_channels = json.loads(config["ignored_channels"])
+            for channel in ignored_channels:
+                if channel == ctx.channel.id:
                     return
-        if config["ignored_roles"] is not False:
-            for role in ctx.author.roles:
-                if role.id in config["ignored_roles"]:
-                    return
-        if config["dm"]["choose_experience"] is not False:
-            for role in config["dm"]["roles"]:
-                dm_roles.append(role)
+        if config["ignored_roles"] is not None:  # TODO: Roles with custom multipliers.
+            ignored_roles = json.loads(config["ignored_roles"])
+            for role in ignored_roles:
+                for author_role in ctx.author.roles:
+                    if role == author_role.id:
+                        return
+        dm_choose = False
+        dm_roles = []
+        if config["dm_choose"] != 0 and config["dm_roles"] is not None:
             dm_choose = True
-        print("Configuration complete. Moving to determination...")
-        await Experience.determination(self, ctx=ctx, dm_choose=dm_choose, dm_roles=dm_roles)
+            dm_roles = json.loads(config["dm_roles"])
+            for role in dm_roles:
+                dm_roles.append(role)
+        await Experience.determination(ctx=ctx, dm_choose=dm_choose, dm_roles=dm_roles)
 
     @staticmethod
-    async def determination(self, ctx, dm_choose, dm_roles):
+    async def determination(ctx, dm_choose, dm_roles):
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
             return
+        con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM characters WHERE player_id = ?", [ctx.author.id])
-        characters = cur.fetchall()
+        cur.execute("SELECT * FROM characters WHERE player_id = ? AND guild_id = ?",
+                    [ctx.author.id, ctx.guild.id])
+        characters = [dict(value) for value in cur.fetchall()]
         con.close()
         if not characters:
             return
         rewarded = None
         highest_points = 0
-        next_experience = 0
-        for characters_list in characters:
-            character = []
-            for value in characters_list:
-                character.append(value)
-            character.append(0)
-            if character[6] == 1:  # GLOBAL check. There must always be one GLOBAL character per player. This adds
-                # one point to the specified GLOBAL character's likelihood to break a tie of zeroes.
-                character[23] += 1
-            if character[7] == 1:  # ACTIVE check. Rewards players who are vigilant with switching characters by giving
-                # the character who is ACTIVE a greater likelihood without completely overriding other checks.
-                character[23] += 20
-            name_search_pattern = f"{str(character[1][0]).capitalize()}{str(character[1][1:]).lower()}"
+        for character in characters:
+            points = 0
+            if character["global"] == 1:  # GLOBAL check. There must always be one GLOBAL character per player. This
+                # adds one point to the specified GLOBAL character's likelihood to break a tie of zeroes.
+                points += 1
+            if character["active"] == 1:  # ACTIVE check. Rewards players who are vigilant with switching characters by
+                # giving the character who is ACTIVE a greater likelihood without completely overriding other checks.
+                points += 20
+            name_search_pattern = f"""{character["character_name"][0].capitalize()}\
+{character["character_name"][1:].lower()}"""
             name_search = re.search(rf"[\s|*|\"|\'|_]{name_search_pattern}[\s|*|\"|\'|.|,|?|!|_]", ctx.content)
             if name_search is not None:  # NAME check. Searches the content of the message for a mention of the
                 # character's name, and adds likelihood to that character. Can trip for multiple characters on a player
                 # if their message mentions multiple of their characters, hence why its increase is so low.
-                character[23] += 5
-            nicknames = character[19:22]
-            nick_slice = 19
-            for nick in nicknames:  # NICK check. Similar to NAME, but less powerful to mitigate ties and misuse.
-                if nick == "":
-                    nick_slice += 1
-                    continue
-                nick_search_pattern = f"""{str(character[nick_slice][0]).capitalize()}\
-{str(character[nick_slice][1:]).lower()}"""
-                nick_search = re.search(rf"[\s|*|\"|\']{nick_search_pattern}[\s|*|\"|\'|.|,|?|!]", ctx.content)
-                if nick_search is None:
-                    nick_slice += 1
-                    continue
-                elif nick_search is not None:
-                    character[23] += 4
-            preferred_channels = character[9:19]
-            channel_slice = 9
-            for channel in preferred_channels:  # CHANNEL check. Rewards players who predefine channels where that
+                points += 5
+            if character["nicks"] is not None:  # NICK check. Similar to NAME, but less powerful to mitigate ties
+                # and misuse.
+                nicks = json.loads(character["nicks"])
+                for nick in nicks:
+                    nick_search_pattern = f"{nick[0].capitalize()}{nick[1:].lower()}"
+                    nick_search = re.search(rf"[\s|*|\"|\']{nick_search_pattern}[\s|*|\"|\'|.|,|?|!]",
+                                            ctx.content)
+                    if nick_search is not None:
+                        points += 4
+            if character["channels"] is not None:  # CHANNEL check. Rewards players who predefine channels where that
                 # character is most likely to be, such as a house channel, or channels set before an outing. Powerful
                 # enough to be rewarding, while still enabling overwrite if a player forgets to unset channels.
-                if channel == 0:
-                    channel_slice += 1
-                    continue
-                if ctx.channel.id == character[channel_slice]:
-                    character[23] += 15
-                channel_slice += 1
+                channels = json.loads(character["channels"])
+                for channel in channels:
+                    if channel == ctx.channel.id:
+                        points += 15
             underlined_name_search = re.search(rf"_{r"{2}"}{name_search_pattern}_{r"{2}"}", ctx.content)
             if underlined_name_search is not None:  # UNDERLINE check. Essentially allows a player to manually set
                 # which character obtains experience. Able to be misused, but very obvious, both in message content,
                 # and in message logs.
-                character[23] += 100
-            if dm_choose is True and dm_roles != []:  # DM check. Allows a DM to set a preferred character for obtaining
-                # experience while running adventures. Can only be overridden by UNDERLINE.
+                points += 100
+            if dm_choose is True and dm_roles is not None:  # DM check. Allows a DM to set a preferred character for
+                # obtaining experience while running adventures. Can only be overridden by UNDERLINE.
                 for role in dm_roles:
                     if role in ctx.author.roles:
-                        if character[8] == 1:
-                            character[23] += 50
+                        if character["dm"] == 1:
+                            points += 50
                             break
-            for character_points in characters:  # Compares the points of characters and sets them as rewarded if theirs
-                # is the highest total.
-                if character[23] > highest_points:
-                    highest_points = character[23]
-                    rewarded = character[1]
-            print(f"{character[1]} has {character[23]} points. The highest point total is {highest_points}.")
-        print("Determination complete. Moving to rewarding...")
-        await Experience.rewarding(self, ctx=ctx, rewarded=rewarded)
+            if points > highest_points:
+                highest_points = points
+                rewarded = character["character_name"]
+        await Experience.rewarding(ctx=ctx, rewarded=rewarded)
 
     @staticmethod
-    async def rewarding(self, ctx, rewarded):
+    async def rewarding(ctx, rewarded):
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
             return
+        con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute("""SELECT experience, level, tier, next_experience FROM characters \
-WHERE player_id = ? AND character_name = ?""", [ctx.author.id, rewarded])
-        values = cur.fetchall()
+WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, ctx.guild.id, rewarded])
+        character = [dict(value) for value in cur.fetchall()][0]
         con.close()
-        value_list = []
-        for value in values[0]:
-            value_list.append(value)
-        if datetime.now(tz=None) < datetime.fromtimestamp(value_list[3], tz=None):
+        if datetime.now(tz=None) < datetime.fromtimestamp(int(character["next_experience"]), tz=None):
             return
-        experience = value_list[0] + 1  # Here, the experience added will be modified.
+        experience = int(character["experience"]) + 1  # TODO: Experience formulae.
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
             return
         cur = con.cursor()
-        cur.execute("UPDATE characters SET experience = ? WHERE player_id = ? AND character_name = ?",
-                    [experience, ctx.author.id, rewarded])
+        cur.execute("""UPDATE characters SET experience = ? WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
-        cur.execute("SELECT experience FROM characters WHERE player_id = ? AND character_name = ?",
-                    [ctx.author.id, rewarded])
-        final_experience = cur.fetchall()[0][0]  # TODO: Too lazy to scroll for right place to put it but
-        # TODO: I forgot. OH! Custom experience curves support
         con.close()
-        with open("config.json", "r") as config:
-            data = json.load(config)
-            config.close()
-        config = data["config"][str(ctx.guild.id)]["experience"]
-        next_experience = int(time.time()) + config["time_between"]
+        try:
+            con = sqlite3.connect("server_config.db", timeout=30.0)
+        except OperationalError:
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT time_between, experience_thresholds FROM server_config WHERE guild_id = ?",
+                    [ctx.guild.id])
+        configs = [dict(value) for value in cur.fetchall()][0]
+        con.close()
+        next_experience = int(time.time()) + int(configs["time_between"])
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
             return
         cur = con.cursor()
-        cur.execute("UPDATE characters SET next_experience = ? WHERE player_id = ? AND character_name = ?",
-                    [next_experience, ctx.author.id, rewarded])
+        cur.execute("""UPDATE characters SET next_experience = ? WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [next_experience, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
         con.close()
-        with open("experience.json", "r") as exp:
-            data = json.load(exp)
-            exp.close()
-        exp = datetime.fromtimestamp(next_experience, tz=None)
-        if final_experience > data["experience"][f"{value_list[1] + 1}"]:
-            await Experience.level(self, ctx=ctx, rewarded=rewarded)
-        print(f"Dew's experience total is {final_experience}.")
-        print(f"Dew will be able to gain experience again at {exp}")
-        # print(value_list)
+        if experience >= (json.loads(configs["experience_thresholds"]))[f"{int(character["level"]) + 1}"]:
+            await Experience.level(ctx=ctx, rewarded=rewarded)
 
     @staticmethod
-    async def level(self, ctx, rewarded):
+    async def level(ctx, rewarded):
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
             return
+        con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT experience, level, tier FROM characters WHERE player_id = ? AND character_name = ?",
-                    [ctx.author.id, rewarded])
-        values = cur.fetchall()
+        cur.execute("""SELECT experience, level, tier FROM characters WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [ctx.author.id, rewarded])
+        character = [dict(value) for value in cur.fetchall()][0]
         con.close()
-        value_list = []
-        for value in values[0]:
-            value_list.append(value)
-        with open("experience.json", "r") as exp:
-            data = json.load(exp)
-            exp.close()
+        try:
+            con = sqlite3.connect("server_config.db", timeout=30.0)
+        except OperationalError:
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT experience_thresholds, tier_thresholds FROM server_config WHERE guild_id = ?",
+                    [ctx.guild.id])
+        config = [dict(value) for value in cur.fetchall()][0]
+        con.close()
         new_level = 0
-        for level, threshold in data["experience"].items():
-            if threshold < value_list[0]:
+        for level, threshold in json.loads(config["experience_thresholds"]).items():
+            if threshold < int(character["experience"]):
                 new_level = int(level)
         new_tier = 0
-        if new_level >= 17:
-            new_tier = 4
-        elif new_level >= 11:
-            new_tier = 3
-        elif new_level >= 5:
-            new_tier = 2
-        elif new_level < 5:
-            new_tier = 1
-        with open("config.json", "r") as config:
-            data = json.load(config)
-            config.close()
-        leveling = data["config"][str(ctx.guild.id)]["leveling"]
-        channel = None
-        message = None
-        if leveling["channel"] is not False:
-            channel = disnake.utils.get(ctx.guild.channels, id=leveling["channel"])
-        if leveling["message"] is not False:
-            message = re.sub(r"%PING", ctx.author.mention, leveling["message"])
-            message = re.sub(r"%CHAR", rewarded, message)
-            message = re.sub(r"%LVL", str(new_level), message)
-        if channel is not None and message is not None:
-            await channel.send(message)
+        for tier, threshold in json.loads(config["tier_thresholds"]).items():
+            if threshold < int(character["level"]):
+                new_tier = int(tier)
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
             return
         cur = con.cursor()
-        cur.execute("UPDATE characters SET level = ?, tier = ? WHERE player_id = ? AND character_name = ?",
-                    [new_level, new_tier, ctx.author.id, rewarded])
+        cur.execute("""UPDATE characters SET level = ?, tier = ? WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [new_level, new_tier, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
-        con.close()  # TODO: Dicts are a thing, I should use them
+        con.close()
+        if config["channel"] is not 0 and config["level_message"] is not 0:
+            channel = disnake.utils.get(ctx.guild.channels, id=int(config["channel"]))
+            message = re.sub(r"%PING", ctx.author.mention, config["level_message"])
+            message = re.sub(r"%CHAR", rewarded, message)
+            message = re.sub(r"%LVL", str(new_level), message)
+            await channel.send(message)
 
     @commands.Cog.listener()
     async def on_message(self, ctx):

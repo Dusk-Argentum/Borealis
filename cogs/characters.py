@@ -85,7 +85,8 @@ class Characters(commands.Cog):
             await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
                                              custom_title=None, description="""Please choose which character to delete\
 , or cancel the deletion process.""", fields=None, footer_text="This process cannot be undone.", status="waiting")
-            await response.edit(embed=EmbedBuilder.embed, view=view)  # This view disappeared immediately once. CNR.
+            await response.edit(embed=EmbedBuilder.embed, view=view)  # This view disappeared immediately once.
+            # I cannot reliably reproduce the above glitch, but I... HOPE that it isn't what I think it is.
             timeout = await view.wait()
             selected = DeletionSelection.selected
             if timeout:
@@ -194,7 +195,7 @@ name!""", fields=None, footer_text="Please choose a unique name.", status="alert
                 await response.edit(embed=EmbedBuilder.embed)
                 return
         try:
-            con = sqlite3.connect("configs.db", timeout=30.0)
+            con = sqlite3.connect("server_config.db", timeout=30.0)
         except OperationalError:
             await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
                                              custom_title=None, description="Please try again in a moment.",
@@ -203,11 +204,11 @@ name!""", fields=None, footer_text="Please choose a unique name.", status="alert
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM configs WHERE guild_id = ?", [ctx.guild.id])
-        configs = [dict(value) for value in cur.fetchall()][0]
+        cur.execute("SELECT * FROM server_config WHERE guild_id = ?", [ctx.guild.id])
+        server_config = [dict(value) for value in cur.fetchall()][0]  # TODO: Make queries more specific.
         con.close()
-        if len(characters) >= int(configs["character_limit"]):  # This is cast to int even though it already IS one
-            # because, of course, PyCharm complains if I don't.
+        if len(characters) >= int(server_config["character_limit"]):  # This is cast to int even though it already IS
+            # one because, of course, PyCharm complains if I don't.
             await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
                                              custom_title=None, description="You have reached the character cap!",
                                              fields=None,
@@ -262,13 +263,13 @@ guild_id = ?""", [selected, ctx.author.id, ctx.guild.id])
                                 embed=EmbedBuilder.embed, view=None)
         character_id = uuid.uuid4()
         starting_experience = 6500
-        for level, minimum in json.loads(configs["experience_curve"]).items():
-            if int(configs["starting_level"]) == level:
+        for level, minimum in json.loads(server_config["experience_curve"]).items():
+            if int(server_config["starting_level"]) == level:
                 starting_experience = int(minimum)
                 break
         starting_tier = 2
-        for tier, threshold in json.loads(configs["tier_thresholds"]).items():
-            if int(configs["starting_level"]) > int(threshold):
+        for tier, threshold in json.loads(server_config["tier_thresholds"]).items():
+            if int(server_config["starting_level"]) > int(threshold):
                 starting_tier = int(tier)
         global_switch = 1
         if len(characters) == [0, 1]:
@@ -284,7 +285,7 @@ guild_id = ?""", [selected, ctx.author.id, ctx.guild.id])
         cur = con.cursor()
         cur.execute("""INSERT INTO characters VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0, "[]", "[]")""",
                     [str(character_id), str(character_name), ctx.author.id, ctx.guild.id, starting_experience,
-                        configs["starting_level"], starting_tier, global_switch])
+                        server_config["starting_level"], starting_tier, global_switch])
         con.commit()
         con.close()
         await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
