@@ -46,7 +46,7 @@ class Experience(commands.Cog):
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM bot_config")
+        cur.execute("SELECT banned_users, banned_guilds FROM bot_config")
         banned = [dict(value) for value in cur.fetchall()][0]
         con.close()
         banned_users = []
@@ -71,32 +71,34 @@ class Experience(commands.Cog):
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM server_config WHERE guild_id = ?", [ctx.guild.id])
-        config = [dict(value) for value in cur.fetchall()][0]
-        if config["ooc_start"] != "0" and config["ooc_end"] != "0":
-            pattern = f"""\\{config["ooc_start"]}.*\\{config["ooc_end"]}"""
+        cur.execute("""SELECT ooc_start, ooc_end, minimum_length, ignored_channels, ignored_roles, dm_choose \
+FROM server_config WHERE guild_id = ?""", [ctx.guild.id])
+        server_config = [dict(value) for value in cur.fetchall()][0]
+        con.close()
+        if server_config["ooc_start"] != "0" and server_config["ooc_end"] != "0":
+            pattern = f"""\\{server_config["ooc_start"]}.*\\{server_config["ooc_end"]}"""
             ooc_check = re.search(pattern, ctx.content)
             if ooc_check is not None:
                 return
-        if int(config["minimum_length"]) != 0:
-            if len(ctx.content) < int(config["minimum_length"]):
+        if int(server_config["minimum_length"]) != 0:
+            if len(ctx.content) < int(server_config["minimum_length"]):
                 return
-        if config["ignored_channels"] is not None:
-            ignored_channels = json.loads(config["ignored_channels"])
+        if server_config["ignored_channels"] is not None:
+            ignored_channels = json.loads(server_config["ignored_channels"])
             for channel in ignored_channels:
                 if channel == ctx.channel.id:
                     return
-        if config["ignored_roles"] is not None:  # TODO: Roles with custom multipliers.
-            ignored_roles = json.loads(config["ignored_roles"])
+        if server_config["ignored_roles"] is not None:  # TODO: Roles with custom multipliers.
+            ignored_roles = json.loads(server_config["ignored_roles"])
             for role in ignored_roles:
                 for author_role in ctx.author.roles:
                     if role == author_role.id:
                         return
         dm_choose = False
         dm_roles = []
-        if config["dm_choose"] != 0 and config["dm_roles"] is not None:
+        if server_config["dm_choose"] != 0 and server_config["dm_roles"] is not None:
             dm_choose = True
-            dm_roles = json.loads(config["dm_roles"])
+            dm_roles = json.loads(server_config["dm_roles"])
             for role in dm_roles:
                 dm_roles.append(role)
         await Experience.determination(ctx=ctx, dm_choose=dm_choose, dm_roles=dm_roles)
@@ -109,8 +111,9 @@ class Experience(commands.Cog):
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM characters WHERE player_id = ? AND guild_id = ?",
-                    [ctx.author.id, ctx.guild.id])
+        cur.execute("""SELECT character_name, global, active, dm, channels, nicks \
+FROM characters WHERE player_id = ? AND guild_id = ?""", [ctx.author.id, ctx.guild.id])
+        # name, global, active, channels, nicks, dm
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
         if not characters:
@@ -132,6 +135,13 @@ class Experience(commands.Cog):
                 # character's name, and adds likelihood to that character. Can trip for multiple characters on a player
                 # if their message mentions multiple of their characters, hence why its increase is so low.
                 points += 5
+            if character["channels"] is not None:  # CHANNEL check. Rewards players who predefine channels where that
+                # character is most likely to be, such as a house channel, or channels set before an outing. Powerful
+                # enough to be rewarding, while still enabling overwrite if a player forgets to unset channels.
+                channels = json.loads(character["channels"])
+                for channel in channels:
+                    if channel == ctx.channel.id:
+                        points += 15
             if character["nicks"] is not None:  # NICK check. Similar to NAME, but less powerful to mitigate ties
                 # and misuse.
                 nicks = json.loads(character["nicks"])
@@ -141,13 +151,6 @@ class Experience(commands.Cog):
                                             ctx.content)
                     if nick_search is not None:
                         points += 4
-            if character["channels"] is not None:  # CHANNEL check. Rewards players who predefine channels where that
-                # character is most likely to be, such as a house channel, or channels set before an outing. Powerful
-                # enough to be rewarding, while still enabling overwrite if a player forgets to unset channels.
-                channels = json.loads(character["channels"])
-                for channel in channels:
-                    if channel == ctx.channel.id:
-                        points += 15
             underlined_name_search = re.search(rf"_{r"{2}"}{name_search_pattern}_{r"{2}"}", ctx.content)
             if underlined_name_search is not None:  # UNDERLINE check. Essentially allows a player to manually set
                 # which character obtains experience. Able to be misused, but very obvious, both in message content,
@@ -173,7 +176,7 @@ class Experience(commands.Cog):
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("""SELECT experience, level, tier, next_experience FROM characters \
+        cur.execute("""SELECT experience, level, next_experience FROM characters \
 WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, ctx.guild.id, rewarded])
         character = [dict(value) for value in cur.fetchall()][0]
         con.close()
@@ -197,9 +200,9 @@ character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
         cur = con.cursor()
         cur.execute("SELECT time_between, experience_thresholds FROM server_config WHERE guild_id = ?",
                     [ctx.guild.id])
-        configs = [dict(value) for value in cur.fetchall()][0]
+        server_configs = [dict(value) for value in cur.fetchall()][0]
         con.close()
-        next_experience = int(time.time()) + int(configs["time_between"])
+        next_experience = int(time.time()) + int(server_configs["time_between"])
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -209,7 +212,7 @@ character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
 character_name = ?""", [next_experience, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
         con.close()
-        if experience >= (json.loads(configs["experience_thresholds"]))[f"{int(character["level"]) + 1}"]:
+        if experience >= (json.loads(server_configs["experience_thresholds"]))[f"{int(character["level"]) + 1}"]:
             await Experience.level(ctx=ctx, rewarded=rewarded)
 
     @staticmethod
@@ -220,8 +223,8 @@ character_name = ?""", [next_experience, ctx.author.id, ctx.guild.id, rewarded])
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("""SELECT experience, level, tier FROM characters WHERE player_id = ? AND guild_id = ? AND \
-character_name = ?""", [ctx.author.id, rewarded])
+        cur.execute("""SELECT experience FROM characters WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [ctx.author.id, ctx.guild.id, rewarded])
         character = [dict(value) for value in cur.fetchall()][0]
         con.close()
         try:
@@ -230,17 +233,17 @@ character_name = ?""", [ctx.author.id, rewarded])
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT experience_thresholds, tier_thresholds FROM server_config WHERE guild_id = ?",
-                    [ctx.guild.id])
-        config = [dict(value) for value in cur.fetchall()][0]
+        cur.execute("""SELECT experience_thresholds, tier_thresholds, level_channel, level_message \
+FROM server_config WHERE guild_id = ?""", [ctx.guild.id])
+        server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
-        new_level = 0
-        for level, threshold in json.loads(config["experience_thresholds"]).items():
-            if threshold < int(character["experience"]):
+        new_level = 1
+        for level, threshold in json.loads(server_config["experience_thresholds"]).items():
+            if threshold <= int(character["experience"]):
                 new_level = int(level)
-        new_tier = 0
-        for tier, threshold in json.loads(config["tier_thresholds"]).items():
-            if threshold < int(character["level"]):
+        new_tier = 1
+        for tier, threshold in json.loads(server_config["tier_thresholds"]).items():
+            if threshold <= new_level:
                 new_tier = int(tier)
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
@@ -251,11 +254,12 @@ character_name = ?""", [ctx.author.id, rewarded])
 character_name = ?""", [new_level, new_tier, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
         con.close()
-        if config["channel"] is not 0 and config["level_message"] is not 0:
-            channel = disnake.utils.get(ctx.guild.channels, id=int(config["channel"]))
-            message = re.sub(r"%PING", ctx.author.mention, config["level_message"])
+        if server_config["level_channel"] != 0 and server_config["level_message"] != 0:
+            channel = disnake.utils.get(ctx.guild.channels, id=int(server_config["level_channel"]))
+            message = re.sub(r"%PING", ctx.author.mention, server_config["level_message"])
             message = re.sub(r"%CHAR", rewarded, message)
             message = re.sub(r"%LVL", str(new_level), message)
+            message = re.sub(r"\\n", "\n", message)
             await channel.send(message)
 
     @commands.Cog.listener()

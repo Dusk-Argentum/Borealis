@@ -55,10 +55,9 @@ class Characters(commands.Cog):
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM characters WHERE player_id = ? AND guild_id = ?",
+        cur.execute("SELECT character_name, experience FROM characters WHERE player_id = ? AND guild_id = ?",
                     [ctx.author.id, ctx.guild.id])
         characters = [dict(value) for value in cur.fetchall()]
-        character = {}
         con.close()
         if not characters:
             await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
@@ -103,7 +102,7 @@ class Characters(commands.Cog):
         for character in characters:
             if character["character_name"] == selected:
                 break
-        if not character:
+        else:
             await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
                                              custom_title=None,
                                              description=f"You have no character named {selected}!",
@@ -182,7 +181,7 @@ no_doubles.png?ex=6700ebf0&is=66ff9a70&hm=63351b38b949988071696502b0f101edca7f02
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM characters WHERE player_id = ? AND guild_id = ?",
+        cur.execute("SELECT character_name FROM characters WHERE player_id = ? AND guild_id = ?",
                     [ctx.author.id, ctx.guild.id])
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
@@ -204,11 +203,11 @@ name!""", fields=None, footer_text="Please choose a unique name.", status="alert
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT * FROM server_config WHERE guild_id = ?", [ctx.guild.id])
-        server_config = [dict(value) for value in cur.fetchall()][0]  # TODO: Make queries more specific.
+        cur.execute("""SELECT character_limit, starting_level, experience_thresholds, tier_thresholds \
+FROM server_config WHERE guild_id = ?""", [ctx.guild.id])
+        server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
-        if len(characters) >= int(server_config["character_limit"]):  # This is cast to int even though it already IS
-            # one because, of course, PyCharm complains if I don't.
+        if len(characters) >= int(server_config["character_limit"]):
             await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
                                              custom_title=None, description="You have reached the character cap!",
                                              fields=None,
@@ -262,17 +261,17 @@ guild_id = ?""", [selected, ctx.author.id, ctx.guild.id])
             await response.edit(content=f"-# Was this a mistake? {selected} had {experience["experience"]} experience.",
                                 embed=EmbedBuilder.embed, view=None)
         character_id = uuid.uuid4()
-        starting_experience = 6500
-        for level, minimum in json.loads(server_config["experience_curve"]).items():
-            if int(server_config["starting_level"]) == level:
+        starting_experience = 1
+        for level, minimum in json.loads(server_config["experience_thresholds"]).items():
+            if int(server_config["starting_level"]) == int(level):
                 starting_experience = int(minimum)
                 break
-        starting_tier = 2
+        starting_tier = 1
         for tier, threshold in json.loads(server_config["tier_thresholds"]).items():
-            if int(server_config["starting_level"]) > int(threshold):
+            if threshold <= int(server_config["starting_level"]):
                 starting_tier = int(tier)
         global_switch = 1
-        if len(characters) == [0, 1]:
+        if len(characters) in [0, 1]:
             global_switch = 0
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
@@ -284,8 +283,8 @@ guild_id = ?""", [selected, ctx.author.id, ctx.guild.id])
             return
         cur = con.cursor()
         cur.execute("""INSERT INTO characters VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0, "[]", "[]")""",
-                    [str(character_id), str(character_name), ctx.author.id, ctx.guild.id, starting_experience,
-                        server_config["starting_level"], starting_tier, global_switch])
+                    [str(character_id), str(character_name), ctx.author.id, ctx.guild.id,
+                     starting_experience, server_config["starting_level"], starting_tier, global_switch])
         con.commit()
         con.close()
         await EmbedBuilder.embed_builder(self=self, ctx=ctx, custom_color=None, custom_thumbnail=None,
