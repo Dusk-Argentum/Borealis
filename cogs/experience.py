@@ -1,20 +1,20 @@
+from bot import PREFIX
+
+from datetime import datetime
+
 import disnake
 from disnake.ext import commands
 
-from bot import PREFIX
+import json
+
+import random
+
+import re
 
 import sqlite3
 from sqlite3 import OperationalError
 
-import json
-
-import re
-
-from datetime import datetime
-
 import time
-
-import random
 
 
 class Experience(commands.Cog):
@@ -212,6 +212,7 @@ role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?",
                     experience = int(experience * float(multiplier))
         wiggle = float(str(random.uniform(float(server_config["min_wiggle"]), float(server_config["max_wiggle"])))[0:4])
         experience = int(experience * wiggle) + int(character["experience"])
+        # TODO: Bugtest this and ensure it'll work with weird configs.
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
