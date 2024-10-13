@@ -21,6 +21,10 @@ class Experience(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.Cog.listener()
+    async def on_message(self, ctx):
+        await Experience.processing(self, ctx=ctx)
+
     @staticmethod
     async def processing(self, ctx):
         if ctx.author.id == self.bot.user.id:
@@ -90,7 +94,7 @@ FROM server_config WHERE guild_id = ?""", [ctx.guild.id])
             for channel in ignored_channels:
                 if channel == ctx.channel.id:
                     return
-        if server_config["ignored_roles"] is not None:  # TODO: Roles with custom multipliers.
+        if server_config["ignored_roles"] is not None:
             ignored_roles = json.loads(server_config["ignored_roles"])
             for role in ignored_roles:
                 for author_role in ctx.author.roles:
@@ -291,10 +295,6 @@ character_name = ?""", [new_level, new_tier, ctx.author.id, ctx.guild.id, reward
             message = re.sub(r"%LVL", str(new_level), message)
             message = re.sub(r"\\n", "\n", message)
             await channel.send(message)
-
-    @commands.Cog.listener()
-    async def on_message(self, ctx):
-        await Experience.processing(self, ctx=ctx)
 
 
 def setup(bot):

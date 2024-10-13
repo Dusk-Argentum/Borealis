@@ -11,7 +11,7 @@ from sqlite3 import OperationalError
 import uuid
 
 
-class DeletionSelection(disnake.ui.View):
+class CharacterSelection(disnake.ui.View):
     selected = None
 
     def __init__(self, src, options):
@@ -29,9 +29,9 @@ class DeletionSelection(disnake.ui.View):
                 return
             return inter.user.id == self.src.author.id
 
-    @disnake.ui.string_select(placeholder="Delete a character?", options=[], min_values=1, max_values=1)
+    @disnake.ui.string_select(placeholder="Select a character.", options=[], min_values=1, max_values=1)
     async def character_selection(self, select: disnake.ui.StringSelect, inter: disnake.MessageInteraction):
-        DeletionSelection.selected = select.values[0]
+        CharacterSelection.selected = select.values[0]
         await inter.response.defer()
         self.stop()
 
@@ -39,6 +39,297 @@ class DeletionSelection(disnake.ui.View):
 class Characters(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    @staticmethod
+    async def active(self, ctx, inter, character_name, source):
+        src = None
+        if source == "slash":
+            src = inter
+        elif source == "message":
+            src = ctx
+        if character_name is not None and character_name[0].isupper() is False:
+            character_name = character_name.capitalize()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description="Please wait.", fields=None,
+                                         footer_text="Ideally, you should never see this.", status="waiting")
+        response = await src.send(embed=EmbedBuilder.embed)
+        if source == "slash":
+            response = inter
+            src.edit = inter.edit_original_response
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT character_name FROM characters WHERE player_id = ? AND guild_id = ?",
+                    [src.author.id, src.guild.id])
+        characters = [dict(value) for value in cur.fetchall()]
+        con.close()
+        if not characters:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description="You have no characters initialized on this server.",
+                                             fields=None, footer_text="Please initialize a character, then try again.",
+                                             status="unsure")
+            await response.edit(embed=EmbedBuilder.embed)
+            return
+        selected = None
+        if character_name is None:
+            character_list = []
+            for character in characters:
+                character_list.append(character["character_name"])
+            view = disnake.ui.View(timeout=30)
+            selects = view.add_item(disnake.ui.StringSelect(placeholder="Select which character to modify.", options=[],
+                                                            min_values=1, max_values=1))
+            selects.children[0].add_option(label="None, cancel!", value="None, cancel!",
+                                           description="This option will abort the modification process.")
+            selects.children[0].add_option(label="Clear, please!", value="Clear, please!",
+                                           description="This option will clear your ACTIVE character.")
+            for name in character_list:
+                selects.children[0].add_option(label=name, value=name,
+                                               description=f"This option will modify {name}'s preferences.")
+            view = CharacterSelection(src=src, options=selects.children[0].options)
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="""Please choose which character to modify\
+, or cancel the modification process.""", fields=None,
+                                             footer_text="""You may only have up to one character with the ACTIVE tag \
+per server.""", status="waiting")
+            await response.edit(embed=EmbedBuilder.embed, view=view)
+            timeout = await view.wait()
+            selected = CharacterSelection.selected
+            if timeout:
+                selected = "None, cancel!"
+            if selected == "None, cancel!":
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="Character modification aborted.",
+                                                 fields=None, footer_text="Please feel free to try again.",
+                                                 status="add_failure")
+                await response.edit(embed=EmbedBuilder.embed, view=None)
+                return
+            if selected == "Clear, please!":
+                try:
+                    con = sqlite3.connect("characters.db", timeout=30.0)
+                except OperationalError:
+                    await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                     custom_title=None, description="Please try again in a moment.",
+                                                     fields=None, footer_text="The database is busy.", status="failure")
+                    await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+                    return
+                cur = con.cursor()
+                cur.execute("""UPDATE characters SET active = 0 WHERE player_id = ? AND guild_id = ? AND \
+active = 1""", [src.author.id, src.guild.id])
+                con.commit()
+                con.close()
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description=f"You have cleared the ACTIVE tag.",
+                                                 fields=None,
+                                                 footer_text="""Please feel free to designate a new character to have \
+the ACTIVE tag.""", status="deletion")
+                await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+                return
+        elif character_name is not None:
+            selected = character_name
+        for character in characters:
+            if character["character_name"] == selected:
+                break
+        else:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description=f"You have no character named {selected}!",
+                                             fields=None, footer_text="Feel free to try again.", status="unsure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        cur = con.cursor()
+        cur.execute("""UPDATE characters SET active = 0 WHERE player_id = ? AND guild_id = ? AND \
+active = 1""", [src.author.id, src.guild.id])
+        con.commit()
+        cur.execute("""UPDATE characters SET active = 1 WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [src.author.id, src.guild.id, selected])
+        con.commit()
+        con.close()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description=f"{selected} now has the ACTIVE tag.",
+                                         fields=None,
+                                         footer_text="This grants +20 to the experience determination likelihood.",
+                                         status="add_success")
+        await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+
+    @staticmethod
+    async def channel(self, ctx, inter, character_name, channel, source):
+        src = None
+        if source == "slash":
+            src = inter
+        elif source == "message":
+            src = ctx
+        if character_name is not None and character_name[0].isupper() is False:
+            character_name = character_name.capitalize()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description="Please wait.", fields=None,
+                                         footer_text="Ideally, you should never see this.", status="waiting")
+        response = await src.send(embed=EmbedBuilder.embed)
+        if source == "slash":
+            response = inter
+            src.edit = inter.edit_original_response
+        if channel.guild != src.guild:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="That is not a channel in this server!",
+                                             fields=None, footer_text="Please select a channel from this server.",
+                                             status="waiting")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT character_name, channels FROM characters WHERE player_id = ? AND guild_id = ?",
+                    [src.author.id, src.guild.id])
+        characters = [dict(value) for value in cur.fetchall()]
+        con.close()
+        if not characters:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description="You have no characters initialized on this server.",
+                                             fields=None, footer_text="Please initialize a character, then try again.",
+                                             status="unsure")
+            await response.edit(embed=EmbedBuilder.embed)
+            return
+        selected = None
+        if character_name is None:
+            character_list = []
+            for character in characters:
+                character_list.append(character["character_name"])
+            view = disnake.ui.View(timeout=30)
+            selects = view.add_item(disnake.ui.StringSelect(placeholder="Select which character to modify.", options=[],
+                                                            min_values=1, max_values=1))
+            selects.children[0].add_option(label="None, cancel!", value="None, cancel!",
+                                           description="This option will abort the modification process.")
+            for name in character_list:
+                selects.children[0].add_option(label=name, value=name,
+                                               description=f"This option will modify {name}'s preferences.")
+            view = CharacterSelection(src=src, options=selects.children[0].options)
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="""Please choose which character to modify\
+, or cancel the modification process.""", fields=None,
+                                             footer_text="You may have up to ten CHANNELs per character.",
+                                             status="waiting")
+            await response.edit(embed=EmbedBuilder.embed, view=view)
+            timeout = await view.wait()
+            selected = CharacterSelection.selected
+            if timeout:
+                selected = "None, cancel!"
+            if selected == "None, cancel!":
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="Character modification aborted.",
+                                                 fields=None, footer_text="Please feel free to try again.",
+                                                 status="add_failure")
+                await response.edit(embed=EmbedBuilder.embed, view=None)
+                return
+        elif character_name is not None:
+            selected = character_name
+        if channel is None:
+            channel = src.channel
+        for character in characters:
+            for channel_entry in json.loads(character["channels"]):
+                if channel.id == int(channel_entry):
+                    await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                     custom_title=None,
+                                                     description=f"""{channel.name} is already a CHANNEL for \
+{character['name']}.""", fields=None, footer_text="Please feel free to try again.", status="alert")
+                    # TODO: How to unset? Change text.
+                    await response.edit(embed=EmbedBuilder.embed, view=None)
+                    return
+        for character in characters:
+            if character["character_name"] == selected:
+                break
+        else:
+            character_list = []  # TODO: U R HERE
+            # TODO: I maked a mess, but I'm going to clean it up.
+            # TODO: Need to alter character list to use for name in characters instead.
+            # TODO: Need to make it so not finding a character based on character_name command arg brings up dropdown.
+            # TODO: This is the only command I've touched, I need to touch the others.
+            # TODO: Need to figure out a way to remove a CHANNEL from CHANNEL list with a command.
+            # TODO: Also, channel_message had issues with channels from other servers; unexpected behavior.
+            # TODO: Errors as expected, but I need to handle them better?
+            # TODO: channel_message needs more rigorous testing.
+            # TODO: A sweep of all existing commands to unify them in naming conventions and such.
+            # TODO: Still have to do NICK commands yet before server_config stuff.
+            # TODO: Sweep for TODOs in other files.
+            for name in characters:
+                character_list.append(name["character_name"])
+            view = disnake.ui.View(timeout=30)
+            selects = view.add_item(disnake.ui.StringSelect(placeholder="Select which character to modify.", options=[],
+                                                            min_values=1, max_values=1))
+            selects.children[0].add_option(label="None, cancel!", value="None, cancel!",
+                                           description="This option will abort the modification process.")
+            for name in character_list:
+                selects.children[0].add_option(label=name, value=name,
+                                               description=f"This option will modify {name}'s preferences.")
+            view = CharacterSelection(src=src, options=selects.children[0].options)
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="""Please choose which character to modify\
+            , or cancel the modification process.""", fields=None,
+                                             footer_text="You may have up to ten CHANNELs per character.",
+                                             status="waiting")
+            await response.edit(embed=EmbedBuilder.embed, view=view)
+            timeout = await view.wait()
+            selected = CharacterSelection.selected
+            if timeout:
+                selected = "None, cancel!"
+            if selected == "None, cancel!":
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="Character modification aborted.",
+                                                 fields=None, footer_text="Please feel free to try again.",
+                                                 status="add_failure")
+                await response.edit(embed=EmbedBuilder.embed, view=None)
+                return
+        if len(json.loads(character["channels"])) >= 10:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description=f"{character['character_name']} already has 10 CHANNELs!",
+                                             fields=None,
+                                             footer_text="You may have up to ten CHANNELs per character.",
+                                             status="alert")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        channels = json.loads(character["channels"])
+        channels.append(channel.id)
+        channels = json.dumps(channels)
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        cur = con.cursor()
+        cur.execute("""UPDATE characters SET channels = ? WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [channels, src.author.id, src.guild.id, selected])
+        con.commit()
+        con.close()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description=f"""{channel.mention} is now a preferred \
+CHANNEL of {selected}.""", fields=None, footer_text="This grants +15 to the experience determination likelihood.",
+            status="add_success")
+        await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
 
     @staticmethod
     async def delete(self, ctx, inter, character_name, source):
@@ -81,7 +372,7 @@ class Characters(commands.Cog):
         selected = None  # This needs to be here so there isn't a variable out-of-scope error later on.
         if character_name is None:
             character_list = []
-            for character in characters:
+            for character in characters:  # TODO: Fix this, cannot be character in
                 character_list.append(character["character_name"])
             view = disnake.ui.View(timeout=30)
             selects = view.add_item(disnake.ui.StringSelect(placeholder="Select which character to delete.", options=[],
@@ -91,7 +382,7 @@ class Characters(commands.Cog):
             for name in character_list:
                 selects.children[0].add_option(label=name, value=name,
                                                description=f"This option will PERMANENTLY delete {name}!")
-            view = DeletionSelection(src=src, options=selects.children[0].options)
+            view = CharacterSelection(src=src, options=selects.children[0].options)
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None, description="""Please choose which character to delete\
 , or cancel the deletion process.""", fields=None, footer_text="This process cannot be undone.",
@@ -99,7 +390,7 @@ class Characters(commands.Cog):
             await response.edit(embed=EmbedBuilder.embed, view=view)  # This view disappeared immediately once.
             # I cannot reliably reproduce the above glitch, but I... HOPE that it isn't what I think it is.
             timeout = await view.wait()
-            selected = DeletionSelection.selected
+            selected = CharacterSelection.selected
             if timeout:
                 selected = "None, cancel!"
             if selected == "None, cancel!":
@@ -121,7 +412,6 @@ class Characters(commands.Cog):
                                              fields=None, footer_text="Feel free to try again.", status="unsure")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
-        experience = character["experience"]
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -139,8 +429,113 @@ class Characters(commands.Cog):
                                          custom_title=None, description=f"{selected} doesn't feel so good...",
                                          fields=None, footer_text="You are now free to initialize a new character.",
                                          status="deletion")
+        experience = character["experience"]
         await response.edit(content=f"-# Was this a mistake? {selected} had {experience} experience.",
                             embed=EmbedBuilder.embed, view=None)
+
+    @staticmethod
+    async def global_switch(self, ctx, inter, character_name, source):
+        src = None
+        if source == "slash":
+            src = inter
+        elif source == "message":
+            src = ctx
+        if character_name is not None and character_name[0].isupper() is False:
+            character_name = character_name.capitalize()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description="Please wait.", fields=None,
+                                         footer_text="Ideally, you should never see this.", status="waiting")
+        response = await src.send(embed=EmbedBuilder.embed)
+        if source == "slash":
+            response = inter
+            src.edit = inter.edit_original_response
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT character_name FROM characters WHERE player_id = ? AND guild_id = ?",
+                    [src.author.id, src.guild.id])
+        characters = [dict(value) for value in cur.fetchall()]
+        con.close()
+        if not characters:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description="You have no characters initialized on this server.",
+                                             fields=None, footer_text="Please initialize a character, then try again.",
+                                             status="unsure")
+            await response.edit(embed=EmbedBuilder.embed)
+            return
+        selected = None
+        if character_name is None:
+            character_list = []
+            for character in characters:
+                character_list.append(character["character_name"])
+            view = disnake.ui.View(timeout=30)
+            selects = view.add_item(disnake.ui.StringSelect(placeholder="Select which character to modify.", options=[],
+                                                            min_values=1, max_values=1))
+            selects.children[0].add_option(label="None, cancel!", value="None, cancel!",
+                                           description="This option will abort the modification process.")
+            for name in character_list:
+                selects.children[0].add_option(label=name, value=name,
+                                               description=f"This option will modify {name}'s preferences.")
+            view = CharacterSelection(src=src, options=selects.children[0].options)
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="""Please choose which character to modify\
+, or cancel the modification process.""", fields=None,
+                                             footer_text="""You may only have one character with the GLOBAL tag\
+per server.""", status="waiting")
+            await response.edit(embed=EmbedBuilder.embed, view=view)
+            timeout = await view.wait()
+            selected = CharacterSelection.selected
+            if timeout:
+                selected = "None, cancel!"
+            if selected == "None, cancel!":
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="Character modification aborted.",
+                                                 fields=None, footer_text="Please feel free to try again.",
+                                                 status="add_failure")
+                await response.edit(embed=EmbedBuilder.embed, view=None)
+                return
+        elif character_name is not None:
+            selected = character_name
+        for character in characters:
+            if character["character_name"] == selected:
+                break
+        else:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description=f"You have no character named {selected}!",
+                                             fields=None, footer_text="Feel free to try again.", status="unsure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        cur = con.cursor()
+        cur.execute("""UPDATE characters SET global = 0 WHERE player_id = ? AND guild_id = ? AND \
+global = 1""", [src.author.id, src.guild.id])
+        con.commit()
+        cur.execute("""UPDATE characters SET global = 1 WHERE player_id = ? AND guild_id = ? AND \
+character_name = ?""", [src.author.id, src.guild.id, selected])
+        con.commit()
+        con.close()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description=f"{selected} now has the GLOBAL tag.",
+                                         fields=None,
+                                         footer_text="This grants +1 to the experience determination likelihood.",
+                                         status="add_success")
+        await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
 
     @staticmethod
     async def initialize(self, ctx, inter, character_name, source):
@@ -176,18 +571,20 @@ class Characters(commands.Cog):
                                              status="alert")
             await response.edit(embed=EmbedBuilder.embed)
             return
-        if character_name == "None, cancel!":
-            ass = "https://cdn.discordapp.com/attachments/1291623487990927411/1291664640106958898/\
+        banned_names = ["Clear, please!", "None, cancel!"]
+        for banned_name in banned_names:
+            if character_name == banned_name:
+                ass = "https://cdn.discordapp.com/attachments/1291623487990927411/1291664640106958898/\
 no_doubles.png?ex=6700ebf0&is=66ff9a70&hm=63351b38b949988071696502b0f101edca7f022dcb6e733dc2eebf3243f386f1&"
-            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=disnake.Color(0x5e0606),
-                                             custom_thumbnail=ass,
-                                             custom_title="Oops!",
-                                             description="Your name sucks ass!",
-                                             fields=None,
-                                             footer_text="Please choose a name that does not suck ass.",
-                                             status=None)
-            await response.edit(embed=EmbedBuilder.embed)
-            return
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=disnake.Color(0x5e0606),
+                                                 custom_thumbnail=ass,
+                                                 custom_title="Oops!",
+                                                 description="Your name sucks ass!",
+                                                 fields=None,
+                                                 footer_text="Please choose a name that does not suck ass.",
+                                                 status=None)
+                await response.edit(embed=EmbedBuilder.embed)
+                return
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -240,10 +637,10 @@ FROM server_config WHERE guild_id = ?""", [src.guild.id])
                 selects.children[0].add_option(label=character["character_name"], value=character["character_name"],
                                                description=f"""This option will PERMANENTLY delete \
 {character["character_name"]}!""")
-            view = DeletionSelection(src=src, options=selects.children[0].options)
+            view = CharacterSelection(src=src, options=selects.children[0].options)
             await response.edit(view=view)
             timeout = await view.wait()
-            selected = DeletionSelection.selected
+            selected = CharacterSelection.selected
             if timeout:
                 selected = "None, cancel!"
             if selected == "None, cancel!":
@@ -288,7 +685,7 @@ guild_id = ?""", [selected, src.author.id, src.guild.id])
             if threshold <= int(server_config["starting_level"]):
                 starting_tier = int(tier)
         global_switch = 1
-        if len(characters) in [0, 1]:
+        if len(characters) > 0:
             global_switch = 0
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
@@ -310,21 +707,56 @@ guild_id = ?""", [selected, src.author.id, src.guild.id])
                                          status="add_success")
         await response.edit(embed=EmbedBuilder.embed)
 
-    @commands.slash_command(name="i", description="Initializes a character.", dm_permission=False)
+    @commands.slash_command(name="active", description="Gives a character the ACTIVE tag.", dm_permission=False)
+    @commands.guild_only()
+    async def active_slash(self, inter, character_name: str = None):
+        await self.active(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+
+    @commands.slash_command(name="channel", description="Sets a CHANNEL as a character's preferred CHANNEL.",
+                            dm_permission=False)
+    @commands.guild_only()  # TODO: Support for channels other than TextChannel
+    async def channel_slash(self, inter, character_name: str = None, channel: disnake.TextChannel = None):
+        await self.channel(self, ctx=None, inter=inter, character_name=character_name, channel=channel, source="slash")
+
+    @commands.slash_command(name="delete", description="Deletes a character.", dm_permission=False)
+    @commands.guild_only()
+    async def delete_slash(self, inter, character_name: str = None):
+        await self.delete(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+
+    @commands.slash_command(name="global", description="Gives a character the GLOBAL tag.", dm_permission=False)
+    @commands.guild_only()
+    async def global_slash(self, inter, character_name: str = None):
+        await self.global_switch(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+
+    @commands.slash_command(name="initialize", description="Initializes a character.", dm_permission=False)
     @commands.guild_only()
     async def initialize_slash(self, inter, character_name: str):
         await self.initialize(self, ctx=None, inter=inter, character_name=character_name, source="slash")
 
-    @commands.slash_command(name="d", description="Deletes a character.", dm_permission=False)
+    @commands.command(aliases=["a"], brief="Grants ACTIVE to a character.",
+                      help="Grants the ACTIVE tag to a selected character.", name="active", usage="active [name]")
     @commands.guild_only()
-    async def delete_slash(self, inter, character_name: str = None):
-        await self.delete(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+    async def active_message(self, ctx, *, character_name: str = None):
+        await self.active(self, ctx=ctx, inter=None, character_name=character_name, source="message")
+
+    @commands.command(aliases=["c"], brief="Sets preferred CHANNEL for a character.",
+                      help="Sets the mentioned CHANNEL as preferred for the selected character.", name="channel",
+                      usage="channel [name] [channel.Mention]")
+    @commands.guild_only()  # TODO: Make CharacterSelect happen when character name isn't recognized on all cmds
+    async def channel_message(self, ctx, character_name: str = None, channel: disnake.TextChannel = None):
+        await self.channel(self, ctx=ctx, inter=None, character_name=character_name, channel=channel, source="message")
 
     @commands.command(aliases=["d"], brief="Deletes a character.", help="Deletes a selected character.",
                       name="delete", usage="delete [name]")
     @commands.guild_only()
     async def delete_message(self, ctx, *, character_name: str = None):
         await self.delete(self, ctx=ctx, inter=None, character_name=character_name, source="message")
+
+    @commands.command(aliases=["g"], brief="Grants GLOBAL to a character.",
+                      help="Grants the GLOBAL tag to a selected character.", name="global", usage="global [name]")
+    @commands.guild_only()
+    async def global_message(self, ctx, *, character_name: str = None):
+        await self.global_switch(self, ctx=ctx, inter=None, character_name=character_name, source="message")
 
     @commands.command(aliases=["i"], brief="Initializes a character.",
                       help="Initializes a newly created character.", name="initialize", usage="initialize <name>")
