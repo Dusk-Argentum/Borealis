@@ -14,6 +14,8 @@ from datetime import datetime
 
 import time
 
+import random
+
 
 class Experience(commands.Cog):
     def __init__(self, bot):
@@ -94,17 +96,10 @@ FROM server_config WHERE guild_id = ?""", [ctx.guild.id])
                 for author_role in ctx.author.roles:
                     if role == author_role.id:
                         return
-        dm_choose = False
-        dm_roles = []
-        if server_config["dm_choose"] != 0 and server_config["dm_roles"] is not None:
-            dm_choose = True
-            dm_roles = json.loads(server_config["dm_roles"])
-            for role in dm_roles:
-                dm_roles.append(role)
-        await Experience.determination(ctx=ctx, dm_choose=dm_choose, dm_roles=dm_roles)
+        await Experience.determination(ctx=ctx)
 
     @staticmethod
-    async def determination(ctx, dm_choose, dm_roles):
+    async def determination(ctx):
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -113,7 +108,6 @@ FROM server_config WHERE guild_id = ?""", [ctx.guild.id])
         cur = con.cursor()
         cur.execute("""SELECT character_name, global, active, dm, channels, nicks \
 FROM characters WHERE player_id = ? AND guild_id = ?""", [ctx.author.id, ctx.guild.id])
-        # name, global, active, channels, nicks, dm
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
         if not characters:
@@ -156,6 +150,23 @@ FROM characters WHERE player_id = ? AND guild_id = ?""", [ctx.author.id, ctx.gui
                 # which character obtains experience. Able to be misused, but very obvious, both in message content,
                 # and in message logs.
                 points += 100
+            try:
+                con = sqlite3.connect("server_config.db", timeout=30.0)
+            except OperationalError:
+                return
+            con.row_factory = sqlite3.Row
+            cur = con.cursor()
+            cur.execute("""SELECT dm_choose, dm_roles FROM server_config WHERE guild_id = ?""",
+                        [ctx.guild.id])
+            server_config = [dict(value) for value in cur.fetchall()][0]
+            con.close()
+            dm_choose = False
+            dm_roles = []
+            if server_config["dm_choose"] != 0 and server_config["dm_roles"] is not None:
+                dm_choose = True
+                dm_roles = json.loads(server_config["dm_roles"])
+                for role in dm_roles:
+                    dm_roles.append(role)
             if dm_choose is True and dm_roles is not None:  # DM check. Allows a DM to set a preferred character for
                 # obtaining experience while running adventures. Can only be overridden by UNDERLINE.
                 for role in dm_roles:
@@ -182,7 +193,25 @@ WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, 
         con.close()
         if datetime.now(tz=None) < datetime.fromtimestamp(int(character["next_experience"]), tz=None):
             return
-        experience = int(character["experience"]) + 1  # TODO: Experience formulae.
+        try:
+            con = sqlite3.connect("server_config.db", timeout=30.0)
+        except OperationalError:
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT time_between, experience_thresholds, base_multiplier, experience_curve, \
+role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?", [ctx.guild.id])
+        server_config = [dict(value) for value in cur.fetchall()][0]
+        con.close()
+        experience = int((int(json.loads(server_config["experience_thresholds"])[f"{int(character['level']) + 1}"])
+                          * float(server_config["base_multiplier"])))
+        experience = int(int(json.loads(server_config["experience_curve"])[f"{int(character['level'])}"]) * experience)
+        for role, multiplier in json.loads(server_config["role_multipliers"]).items():
+            for author_role in ctx.author.roles:
+                if int(role) == author_role.id:
+                    experience = int(experience * float(multiplier))
+        wiggle = float(str(random.uniform(float(server_config["min_wiggle"]), float(server_config["max_wiggle"])))[0:4])
+        experience = int(experience * wiggle) + int(character["experience"])
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -200,9 +229,9 @@ character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
         cur = con.cursor()
         cur.execute("SELECT time_between, experience_thresholds FROM server_config WHERE guild_id = ?",
                     [ctx.guild.id])
-        server_configs = [dict(value) for value in cur.fetchall()][0]
+        server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
-        next_experience = int(time.time()) + int(server_configs["time_between"])
+        next_experience = int(time.time()) + int(server_config["time_between"])
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -212,7 +241,7 @@ character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
 character_name = ?""", [next_experience, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
         con.close()
-        if experience >= (json.loads(server_configs["experience_thresholds"]))[f"{int(character["level"]) + 1}"]:
+        if experience >= (json.loads(server_config["experience_thresholds"]))[f"{int(character["level"]) + 1}"]:
             await Experience.level(ctx=ctx, rewarded=rewarded)
 
     @staticmethod
