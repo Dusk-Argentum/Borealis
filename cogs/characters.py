@@ -494,6 +494,180 @@ CHANNEL of {character["character_name"]}.""", fields=None,
 {experience} experience.""", embed=EmbedBuilder.embed, view=None)
 
     @staticmethod
+    async def dm(self, ctx, inter, character_name, source):  # This function does not have a check preventing non-DMs
+        # from using it so that former DMs can force-unset their characters with the DM tag as a failsafe.
+        src = None
+        if source == "slash":
+            src = inter
+        elif source == "message":
+            src = ctx
+        if character_name is not None and character_name[0].isupper() is False:
+            character_name = character_name.capitalize()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description="Please wait.", fields=None,
+                                         footer_text="Ideally, you should never see this.", status="waiting")
+        response = await src.send(embed=EmbedBuilder.embed)
+        if source == "slash":
+            response = inter
+            src.edit = inter.edit_original_response
+        try:
+            con = sqlite3.connect("server_config.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("""SELECT dm_choose, dm_roles FROM server_config WHERE guild_id = ?""",
+                    [src.guild.id])
+        server_config = [dict(value) for value in cur.fetchall()][0]
+        con.close()
+        try:  # Character list checking has to go before the DM roles check to ensure that the UPDATE query in the
+            # DM roles check never tries to operate on a user that does not have any characters.
+            # It is a little deceptive to allow non-DM users to select a character before checking their role, but
+            # it kind of makes sense.
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT character_name FROM characters WHERE player_id = ? AND guild_id = ?",
+                    [src.author.id, src.guild.id])
+        characters = [dict(value) for value in cur.fetchall()]
+        con.close()
+        if not characters:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description="You have no characters initialized on this server.",
+                                             fields=None, footer_text="Please initialize a character, then try again.",
+                                             status="unsure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        dm_roles = []
+        for role in server_config["dm_roles"]:
+            role = disnake.utils.get(src.guild.roles, id=role)
+            dm_roles.append(role)
+        for role in src.author.roles:
+            for dm_role in dm_roles:
+                if role.id == dm_role:
+                    break
+            else:
+                try:
+                    con = sqlite3.connect("characters.db", timeout=30.0)
+                except OperationalError:
+                    await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                     custom_title=None, description="Please try again in a moment.",
+                                                     fields=None, footer_text="The database is busy.", status="failure")
+                    await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+                    return
+                cur = con.cursor()
+                cur.execute("UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND dm = 1",
+                            [src.author.id, src.guild.id])
+                con.commit()
+                con.close()
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="You are not a DM!",
+                                                 fields=None,
+                                                 footer_text="""DM tag unset from all of your characters in this \
+server as a failsafe.""", status="alert")
+                await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+                return
+        character = None
+        for character in characters:
+            if character["character_name"] == character_name:
+                break
+        else:
+            character_name = None
+        if character_name is None:
+            character_list = []
+            for character in characters:
+                character_list.append(character["character_name"])
+            view = disnake.ui.View(timeout=30)
+            selects = view.add_item(disnake.ui.StringSelect(placeholder="Select which character to modify.", options=[],
+                                                            min_values=1, max_values=1))
+            selects.children[0].add_option(label="None, cancel!", value="None, cancel!",
+                                           description="This option will abort the modification process.")
+            selects.children[0].add_option(label="Clear, please!", value="Clear, please!",
+                                           description="This option will clear your DM character.")
+            for name in character_list:
+                selects.children[0].add_option(label=name, value=name,
+                                               description=f"This option will modify {name}'s preferences.")
+            view = CharacterSelection(src=src, options=selects.children[0].options)
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="""Please choose which character to modify\
+, or cancel the modification process.""", fields=None,
+                                             footer_text="""You may only have one character with the DM tag\
+per server.""", status="waiting")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=view)
+            timeout = await view.wait()
+            selected = CharacterSelection.selected
+            if timeout:
+                selected = "None, cancel!"
+            if selected == "None, cancel!":
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description="Character modification aborted.",
+                                                 fields=None, footer_text="Please feel free to try again.",
+                                                 status="add_failure")
+                await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+                return
+            if selected == "Clear, please!":
+                try:
+                    con = sqlite3.connect("characters.db", timeout=30.0)
+                except OperationalError:
+                    await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                     custom_title=None, description="Please try again in a moment.",
+                                                     fields=None, footer_text="The database is busy.", status="failure")
+                    await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+                    return
+                cur = con.cursor()
+                cur.execute("""UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND \
+dm = 1""", [src.author.id, src.guild.id])
+                con.commit()
+                con.close()
+                await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                                 custom_title=None, description=f"You have cleared the DM tag.",
+                                                 fields=None,
+                                                 footer_text="""Please feel free to designate a new character to have \
+the DM tag.""", status="deletion")
+                await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+                return
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        cur = con.cursor()
+        cur.execute("""UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND dm = 1""",
+                    [src.author.id, src.guild.id])
+        con.commit()
+        cur.execute("""UPDATE characters SET dm = 1 WHERE character_name = ? AND player_id = ? AND \
+guild_id = ?""", [character["character_name"], src.author.id, src.guild.id])
+        con.commit()
+        con.close()
+        footer = ""
+        if server_config["dm_choose"] == 0:
+            footer = """The DM tag will have no effect on this server unless the DM Choose server configuration option \
+is set to True by an administrator."""
+        elif server_config["dm_choose"] == 1:
+            footer = "This grants +50 to the experience determination likelihood."
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None,
+                                         description=f"{character['character_name']} now has the DM tag.",
+                                         fields=None,
+                                         footer_text=footer,
+                                         status="add_success")
+        await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+
+    @staticmethod
     async def global_switch(self, ctx, inter, character_name, source):
         src = None
         if source == "slash":
@@ -972,13 +1146,18 @@ likelihood.""", status="add_success")
                             dm_permission=False)
     @commands.guild_only()
     async def channel_slash(self, inter, character_name: str = None,
-                            channel: disnake.TextChannel|disnake.ForumChannel = None):
+                            channel: disnake.TextChannel | disnake.ForumChannel = None):
         await self.channel(self, ctx=None, inter=inter, character_name=character_name, channel=channel, source="slash")
 
     @commands.slash_command(name="delete", description="Deletes a character.", dm_permission=False)
     @commands.guild_only()
     async def delete_slash(self, inter, character_name: str = None):
         await self.delete(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+
+    @commands.slash_command(name="dm", description="Gives a character the DM tag.", dm_permission=False)
+    @commands.guild_only()
+    async def dm_slash(self, inter, character_name: str = None):
+        await self.dm(self, ctx=None, inter=inter, character_name=character_name, source="slash")
 
     @commands.slash_command(name="global", description="Gives a character the GLOBAL tag.", dm_permission=False)
     @commands.guild_only()
@@ -1004,11 +1183,11 @@ likelihood.""", status="add_success")
 
     @commands.command(aliases=["c"], brief="Sets preferred CHANNEL for a character.",
                       help="Sets the mentioned CHANNEL as preferred for the selected character.", name="channel",
-                      usage="channel [name] [channel.Mention]")
+                      usage="""channel "[name]" [channel.Mention]""")
     @commands.guild_only()
     # TODO: on_error handling for ChannelNotFound raised when using a channel from another server/invalid channel.
     async def channel_message(self, ctx, character_name: str = None,
-                              channel: disnake.TextChannel|disnake.ForumChannel = None):
+                              channel: disnake.TextChannel | disnake.ForumChannel = None):
         await self.channel(self, ctx=ctx, inter=None, character_name=character_name, channel=channel, source="message")
 
     @commands.command(aliases=["d"], brief="Deletes a character.", help="Deletes a selected character.",
@@ -1016,6 +1195,11 @@ likelihood.""", status="add_success")
     @commands.guild_only()
     async def delete_message(self, ctx, *, character_name: str = None):
         await self.delete(self, ctx=ctx, inter=None, character_name=character_name, source="message")
+
+    @commands.command(aliases=["dungeonmaster"], brief="Grants DM to a character.",
+                      help="Grants the DM tag to a selected character.", name="dm", usage="dm [name]")
+    async def dm_message(self, ctx, *, character_name: str = None):
+        await self.dm(self, ctx=ctx, inter=None, character_name=character_name, source="message")
 
     @commands.command(aliases=["g"], brief="Grants GLOBAL to a character.",
                       help="Grants the GLOBAL tag to a selected character.", name="global", usage="global [name]")

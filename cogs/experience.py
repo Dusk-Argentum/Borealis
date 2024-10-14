@@ -31,7 +31,7 @@ class Experience(commands.Cog):
             return
         elif ctx.author.bot:
             return
-        elif type(ctx.channel) is disnake.DMChannel:
+        elif type(ctx.channel) is disnake.DMChannel or type(ctx.channel) is disnake.GroupChannel:
             return
         elif ctx.content.startswith(PREFIX):
             return
