@@ -1,7 +1,7 @@
+from cogs.functions import EmbedBuilder
+
 import disnake
 from disnake.ext import commands
-
-from cogs.functions import EmbedBuilder
 
 import json
 
@@ -520,8 +520,7 @@ CHANNEL of {character["character_name"]}.""", fields=None,
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("""SELECT dm_choose, dm_roles FROM server_config WHERE guild_id = ?""",
-                    [src.guild.id])
+        cur.execute("SELECT dm_choose, dm_roles FROM server_config WHERE guild_id = ?", [src.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
         try:  # Character list checking has to go before the DM roles check to ensure that the UPDATE query in the
@@ -626,8 +625,8 @@ per server.""", status="waiting")
                     await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
                     return
                 cur = con.cursor()
-                cur.execute("""UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND \
-dm = 1""", [src.author.id, src.guild.id])
+                cur.execute("UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND dm = 1",
+                            [src.author.id, src.guild.id])
                 con.commit()
                 con.close()
                 await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
@@ -646,11 +645,11 @@ the DM tag.""", status="deletion")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         cur = con.cursor()
-        cur.execute("""UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND dm = 1""",
+        cur.execute("UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND dm = 1",
                     [src.author.id, src.guild.id])
         con.commit()
-        cur.execute("""UPDATE characters SET dm = 1 WHERE character_name = ? AND player_id = ? AND \
-guild_id = ?""", [character["character_name"], src.author.id, src.guild.id])
+        cur.execute("UPDATE characters SET dm = 1 WHERE character_name = ? AND player_id = ? AND guild_id = ?",
+                    [character["character_name"], src.author.id, src.guild.id])
         con.commit()
         con.close()
         footer = ""
@@ -750,11 +749,11 @@ per server.""", status="waiting")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         cur = con.cursor()
-        cur.execute("""UPDATE characters SET global = 0 WHERE player_id = ? AND guild_id = ? AND \
-global = 1""", [src.author.id, src.guild.id])
+        cur.execute("UPDATE characters SET global = 0 WHERE player_id = ? AND guild_id = ? AND global = 1",
+                    [src.author.id, src.guild.id])
         con.commit()
-        cur.execute("""UPDATE characters SET global = 1 WHERE character_name = ? AND player_id = ? AND \
-guild_id = ?""", [character["character_name"], src.author.id, src.guild.id])
+        cur.execute("UPDATE characters SET global = 1 WHERE character_name = ? AND player_id = ? AND guild_id = ?",
+                    [character["character_name"], src.author.id, src.guild.id])
         con.commit()
         con.close()
         await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,

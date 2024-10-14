@@ -36,6 +36,7 @@ bot = commands.Bot(case_insensitive=True, command_prefix=PREFIX, command_sync_fl
 bot.remove_command("help")
 
 
+bot.load_extension("cogs.aurora")
 bot.load_extension("cogs.characters")
 bot.load_extension("cogs.dev")
 bot.load_extension("cogs.experience")
