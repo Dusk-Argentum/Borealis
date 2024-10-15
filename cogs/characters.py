@@ -1137,7 +1137,7 @@ likelihood.""", status="add_success")
         await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
 
     @commands.slash_command(name="active", description="Gives a character the ACTIVE tag.", dm_permission=False)
-    @commands.guild_only()
+    @commands.guild_only()  # TODO: Reorder these to be alphabetical Slash, then same alphabetical Message.
     async def active_slash(self, inter, character_name: str = None):
         await self.active(self, ctx=None, inter=inter, character_name=character_name, source="slash")
 

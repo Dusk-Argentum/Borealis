@@ -203,13 +203,13 @@ WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, 
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT time_between, experience_thresholds, base_multiplier, experience_curve, \
+        cur.execute("SELECT time_between, experience_thresholds, base_multiplier, level_multipliers, \
 role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?", [ctx.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
         experience = int((int(json.loads(server_config["experience_thresholds"])[f"{int(character['level']) + 1}"])
                           * float(server_config["base_multiplier"])))
-        experience = int(int(json.loads(server_config["experience_curve"])[f"{int(character['level'])}"]) * experience)
+        experience = int(int(json.loads(server_config["level_multipliers"])[f"{int(character['level'])}"]) * experience)
         for role, multiplier in json.loads(server_config["role_multipliers"]).items():
             for author_role in ctx.author.roles:
                 if int(role) == author_role.id:
