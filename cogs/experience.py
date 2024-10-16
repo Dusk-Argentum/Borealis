@@ -215,8 +215,10 @@ role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?",
                 if int(role) == author_role.id:
                     experience = int(experience * float(multiplier))
         wiggle = float(str(random.uniform(float(server_config["min_wiggle"]), float(server_config["max_wiggle"])))[0:4])
+        # TODO: Wiggle has to be redone for decimal reasons.
         experience = int(experience * wiggle) + int(character["experience"])
         # TODO: Bugtest this and ensure it'll work with weird configs.
+        # TODO: Channel modifiers need to exist in this formula.
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:

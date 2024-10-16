@@ -11,7 +11,7 @@ from sqlite3 import OperationalError
 import uuid
 
 
-class ChannelSelection(disnake.ui.View):
+class ChannelSelection(disnake.ui.View):  # TODO: Change to MultiSelect?
     selected = None
 
     def __init__(self, src, options, max_values):
@@ -216,7 +216,7 @@ character_name = ?""", [src.author.id, src.guild.id, character["character_name"]
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None, description="CHANNEL name too long!",
                                              fields=None, footer_text="""For technical reasons, please only select \
-CHANNELs with names that are less than 50 characters.""", status="waiting")
+CHANNELs with names that are less than 50 characters.""", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         try:
@@ -284,11 +284,6 @@ CHANNELs with names that are less than 50 characters.""", status="waiting")
             for channel_entry in json.loads(character_channels["channels"]):
                 if (channel.id == int(channel_entry)
                         and character_channels["character_name"] == character["character_name"]):
-                    await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                                     custom_title=None,
-                                                     description=f"""Unassign {channel.mention} as a CHANNEL for \
-{character["character_name"]}?""", fields=None, footer_text="You can also select other CHANNELs, if you wish.",
-                                                     status="unsure")
                     channel_list = []
                     current_channel = disnake.utils.get(src.guild.channels, id=channel_entry)
                     for channel_id in json.loads(character["channels"]):
@@ -312,10 +307,9 @@ from {character["character_name"]}'s list of CHANNELs.""")
                     await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                                      custom_title=None,
                                                      description=f"""Unassign {channel.mention} as a CHANNEL for \
-{character["character_name"]}?""", fields=None,
-                                                     footer_text="You can also select other CHANNELs, if you wish.",
+{character["character_name"]}?""", fields=None, footer_text="You can also select other CHANNELs, if you wish.",
                                                      status="unsure")
-                    await response.edit(embed=EmbedBuilder.embed, view=view)
+                    await response.edit(content=None, embed=EmbedBuilder.embed, view=view)
                     timeout = await view.wait()
                     selected = ChannelSelection.selected
                     if timeout:
@@ -922,7 +916,7 @@ guild_id = ?""", [selected, src.author.id, src.guild.id])
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         cur = con.cursor()
-        cur.execute("""INSERT INTO characters VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0, "[]", "[]")""",
+        cur.execute("""INSERT INTO characters VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0, "{}", "{}")""",
                     [str(character_id), str(character_name), src.author.id, src.guild.id,
                      starting_experience, server_config["starting_level"], starting_tier, global_switch])
         con.commit()
@@ -1144,8 +1138,7 @@ likelihood.""", status="add_success")
     @commands.slash_command(name="channel", description="Sets a CHANNEL as a character's preferred CHANNEL.",
                             dm_permission=False)
     @commands.guild_only()
-    async def channel_slash(self, inter, character_name: str = None,
-                            channel: disnake.TextChannel | disnake.ForumChannel = None):
+    async def channel_slash(self, inter, character_name: str = None, channel: disnake.TextChannel = None):
         await self.channel(self, ctx=None, inter=inter, character_name=character_name, channel=channel, source="slash")
 
     @commands.slash_command(name="delete", description="Deletes a character.", dm_permission=False)
