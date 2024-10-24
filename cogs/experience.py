@@ -203,22 +203,25 @@ WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, 
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT time_between, experience_thresholds, base_multiplier, level_multipliers, \
+        cur.execute("SELECT time_between, experience_thresholds, base_percentage, level_multipliers, \
 role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?", [ctx.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
         experience = int((int(json.loads(server_config["experience_thresholds"])[f"{int(character['level']) + 1}"])
-                          * float(server_config["base_multiplier"])))
+                          * float(server_config["base_percentage"])))
         experience = int(int(json.loads(server_config["level_multipliers"])[f"{int(character['level'])}"]) * experience)
-        for role, multiplier in json.loads(server_config["role_multipliers"]).items():
-            for author_role in ctx.author.roles:
-                if int(role) == author_role.id:
-                    experience = int(experience * float(multiplier))
+        if json.loads(server_config["role_multipliers"]):
+            print(json.loads(server_config["role_multipliers"]))
+            for role, multiplier in json.loads(server_config["role_multipliers"]).items():
+                for author_role in ctx.author.roles:
+                    if int(role) == author_role.id:
+                        experience = int(experience * float(multiplier))
         wiggle = float(str(random.uniform(float(server_config["min_wiggle"]), float(server_config["max_wiggle"])))[0:4])
         # TODO: Wiggle has to be redone for decimal reasons.
         experience = int(experience * wiggle) + int(character["experience"])
         # TODO: Bugtest this and ensure it'll work with weird configs.
         # TODO: Channel modifiers need to exist in this formula.
+        # TODO: Redo this shit entirely, it gave Rak 10k experience when it wasn't even his message
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:

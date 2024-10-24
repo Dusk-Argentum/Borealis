@@ -11,14 +11,14 @@ from sqlite3 import OperationalError
 import uuid
 
 
-class ChannelSelection(disnake.ui.View):  # TODO: Change to MultiSelect?
+class MultiSelection(disnake.ui.View):
     selected = None
 
     def __init__(self, src, options, max_values):
         super().__init__(timeout=30)
         self.src = src
-        self.channel_selection.options = options
-        self.channel_selection.max_values = max_values
+        self.multi_selection.options = options
+        self.multi_selection.max_values = max_values
 
     async def interaction_check(self, inter: disnake.MessageInteraction):
         try:
@@ -31,8 +31,8 @@ class ChannelSelection(disnake.ui.View):  # TODO: Change to MultiSelect?
             return inter.user.id == self.src.author.id
 
     @disnake.ui.string_select(placeholder="Select a channel.", options=[], min_values=1, max_values=1)
-    async def channel_selection(self, select: disnake.ui.StringSelect, inter: disnake.MessageInteraction):
-        ChannelSelection.selected = select.values
+    async def multi_selection(self, select: disnake.ui.StringSelect, inter: disnake.MessageInteraction):
+        MultiSelection.selected = select.values
         await inter.response.defer()
         self.stop()
 
@@ -303,7 +303,7 @@ from {character["character_name"]}'s list of CHANNELs.""")
                             selects.children[0].add_option(label=channel_in_list.name, value=channel_in_list.id,
                                                            description=f"""This option will remove \
 {channel_in_list.name} from {character["character_name"]}'s list of CHANNELs.""")
-                    view = ChannelSelection(src=src, options=selects.children[0].options, max_values=len(channel_list))
+                    view = MultiSelection(src=src, options=selects.children[0].options, max_values=len(channel_list))
                     await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                                      custom_title=None,
                                                      description=f"""Unassign {channel.mention} as a CHANNEL for \
@@ -311,7 +311,7 @@ from {character["character_name"]}'s list of CHANNELs.""")
                                                      status="unsure")
                     await response.edit(content=None, embed=EmbedBuilder.embed, view=view)
                     timeout = await view.wait()
-                    selected = ChannelSelection.selected
+                    selected = MultiSelection.selected
                     if timeout:
                         selected = "None, cancel!"
                     if "None, cancel!" == selected[0] or "None, cancel!" == selected:
@@ -1015,7 +1015,7 @@ guild_id = ?""", [selected, src.author.id, src.guild.id])
             for character in characters:
                 if character["character_name"] == selected:
                     break
-        for character_nicks in characters:  # TODO: Unique unsetting command.
+        for character_nicks in characters:
             for nick_entry in json.loads(character_nicks["nicks"]):
                 if (character_nick == nick_entry
                         and character_nicks["character_name"] == character["character_name"]):
@@ -1041,8 +1041,8 @@ from {character["character_name"]}'s list of NICKs.""")
                             selects.children[0].add_option(label=nick_in_list, value=nick_in_list,
                                                            description=f"""This option will remove \
 {nick_in_list} from {character["character_name"]}'s list of NICKs.""")
-                    view = ChannelSelection(src=src, options=selects.children[0].options,
-                                            max_values=len(nick_list))
+                    view = MultiSelection(src=src, options=selects.children[0].options,
+                                          max_values=len(nick_list))
                     await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                                      custom_title=None,
                                                      description=f"""Unassign {character_nick} as a NICK for \
@@ -1050,7 +1050,7 @@ from {character["character_name"]}'s list of NICKs.""")
                                                         status="unsure")
                     await response.edit(content=None, embed=EmbedBuilder.embed, view=view)
                     timeout = await view.wait()
-                    selected = ChannelSelection.selected
+                    selected = MultiSelection.selected
                     if timeout:
                         selected = "None, cancel!"
                     if "None, cancel!" == selected[0] or "None, cancel!" == selected:
@@ -1131,47 +1131,21 @@ likelihood.""", status="add_success")
         await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
 
     @commands.slash_command(name="active", description="Gives a character the ACTIVE tag.", dm_permission=False)
-    @commands.guild_only()  # TODO: Reorder these to be alphabetical Slash, then same alphabetical Message.
+    @commands.guild_only()
     async def active_slash(self, inter, character_name: str = None):
         await self.active(self, ctx=None, inter=inter, character_name=character_name, source="slash")
-
-    @commands.slash_command(name="channel", description="Sets a CHANNEL as a character's preferred CHANNEL.",
-                            dm_permission=False)
-    @commands.guild_only()
-    async def channel_slash(self, inter, character_name: str = None, channel: disnake.TextChannel = None):
-        await self.channel(self, ctx=None, inter=inter, character_name=character_name, channel=channel, source="slash")
-
-    @commands.slash_command(name="delete", description="Deletes a character.", dm_permission=False)
-    @commands.guild_only()
-    async def delete_slash(self, inter, character_name: str = None):
-        await self.delete(self, ctx=None, inter=inter, character_name=character_name, source="slash")
-
-    @commands.slash_command(name="dm", description="Gives a character the DM tag.", dm_permission=False)
-    @commands.guild_only()
-    async def dm_slash(self, inter, character_name: str = None):
-        await self.dm(self, ctx=None, inter=inter, character_name=character_name, source="slash")
-
-    @commands.slash_command(name="global", description="Gives a character the GLOBAL tag.", dm_permission=False)
-    @commands.guild_only()
-    async def global_slash(self, inter, character_name: str = None):
-        await self.global_switch(self, ctx=None, inter=inter, character_name=character_name, source="slash")
-
-    @commands.slash_command(name="initialize", description="Initializes a character.", dm_permission=False)
-    @commands.guild_only()
-    async def initialize_slash(self, inter, character_name: str):
-        await self.initialize(self, ctx=None, inter=inter, character_name=character_name, source="slash")
-
-    @commands.slash_command(name="nick", description="Grants a NICK to a character.", dm_permission=False)
-    @commands.guild_only()
-    async def nick_slash(self, inter, character_name: str = None, character_nick: str = None):
-        await self.nick(self, ctx=None, inter=inter, character_name=character_name, character_nick=character_nick,
-                        source="slash")
 
     @commands.command(aliases=["a"], brief="Grants ACTIVE to a character.",
                       help="Grants the ACTIVE tag to a selected character.", name="active", usage="active [name]")
     @commands.guild_only()
     async def active_message(self, ctx, *, character_name: str = None):
         await self.active(self, ctx=ctx, inter=None, character_name=character_name, source="message")
+
+    @commands.slash_command(name="channel", description="Sets a CHANNEL as a character's preferred CHANNEL.",
+                            dm_permission=False)
+    @commands.guild_only()
+    async def channel_slash(self, inter, character_name: str = None, channel: disnake.TextChannel = None):
+        await self.channel(self, ctx=None, inter=inter, character_name=character_name, channel=channel, source="slash")
 
     @commands.command(aliases=["c"], brief="Sets preferred CHANNEL for a character.",
                       help="Sets the mentioned CHANNEL as preferred for the selected character.", name="channel",
@@ -1182,16 +1156,31 @@ likelihood.""", status="add_success")
                               channel: disnake.TextChannel | disnake.ForumChannel = None):
         await self.channel(self, ctx=ctx, inter=None, character_name=character_name, channel=channel, source="message")
 
+    @commands.slash_command(name="delete", description="Deletes a character.", dm_permission=False)
+    @commands.guild_only()
+    async def delete_slash(self, inter, character_name: str = None):
+        await self.delete(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+
     @commands.command(aliases=["d"], brief="Deletes a character.", help="Deletes a selected character.",
                       name="delete", usage="delete [name]")
     @commands.guild_only()
     async def delete_message(self, ctx, *, character_name: str = None):
         await self.delete(self, ctx=ctx, inter=None, character_name=character_name, source="message")
 
+    @commands.slash_command(name="dm", description="Gives a character the DM tag.", dm_permission=False)
+    @commands.guild_only()
+    async def dm_slash(self, inter, character_name: str = None):
+        await self.dm(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+
     @commands.command(aliases=["dungeonmaster"], brief="Grants DM to a character.",
                       help="Grants the DM tag to a selected character.", name="dm", usage="dm [name]")
     async def dm_message(self, ctx, *, character_name: str = None):
         await self.dm(self, ctx=ctx, inter=None, character_name=character_name, source="message")
+
+    @commands.slash_command(name="global", description="Gives a character the GLOBAL tag.", dm_permission=False)
+    @commands.guild_only()
+    async def global_slash(self, inter, character_name: str = None):
+        await self.global_switch(self, ctx=None, inter=inter, character_name=character_name, source="slash")
 
     @commands.command(aliases=["g"], brief="Grants GLOBAL to a character.",
                       help="Grants the GLOBAL tag to a selected character.", name="global", usage="global [name]")
@@ -1199,11 +1188,22 @@ likelihood.""", status="add_success")
     async def global_message(self, ctx, *, character_name: str = None):
         await self.global_switch(self, ctx=ctx, inter=None, character_name=character_name, source="message")
 
+    @commands.slash_command(name="initialize", description="Initializes a character.", dm_permission=False)
+    @commands.guild_only()
+    async def initialize_slash(self, inter, character_name: str):
+        await self.initialize(self, ctx=None, inter=inter, character_name=character_name, source="slash")
+
     @commands.command(aliases=["i"], brief="Initializes a character.",
                       help="Initializes a newly created character.", name="initialize", usage="initialize <name>")
     @commands.guild_only()
     async def initialize_message(self, ctx, *, character_name: str = None):
         await self.initialize(self, ctx=ctx, inter=None, character_name=character_name, source="message")
+
+    @commands.slash_command(name="nick", description="Grants a NICK to a character.", dm_permission=False)
+    @commands.guild_only()
+    async def nick_slash(self, inter, character_name: str = None, character_nick: str = None):
+        await self.nick(self, ctx=None, inter=inter, character_name=character_name, character_nick=character_nick,
+                        source="slash")
 
     @commands.command(aliases=["n"], brief="Grants a NICK to a character.",
                       help="Grants a NICK name to a selected character.", name="nick", usage="nick [name] [nick]")
