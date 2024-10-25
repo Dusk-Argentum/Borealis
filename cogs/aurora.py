@@ -68,7 +68,7 @@ class Aurora(commands.Cog):
                                              footer_text="The minimum base percentage is 0.01.", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
-        if base_percentage > 10.00:  # TODO: Non-negative error handling.
+        if base_percentage > 10.00:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None, description="Base percentage is too high!", fields=None,
                                              footer_text="The maximum base percentage is 10.00.", status="alert")
@@ -124,15 +124,13 @@ channels with names that are less than 50 characters.""", status="alert")
         multiplier = float("{:.2f}".format(multiplier))
         if multiplier < 0.01:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Multiplier below minimum supported!",
-                                             fields=None,
+                                             custom_title=None, description="Multiplier is too low!", fields=None,
                                              footer_text="The minimum supported channel multiplier is 0.01.",
                                              status="alert")
             return
         if multiplier > 10.00:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Multiplier exceeds maximum supported!",
-                                             fields=None,
+                                             custom_title=None, description="Multiplier is too high!", fields=None,
                                              footer_text="The maximum supported channel multiplier is 10.00",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -150,9 +148,9 @@ channels with names that are less than 50 characters.""", status="alert")
         cur.execute("SELECT channel_multipliers FROM server_config WHERE guild_id = ?",
                     [src.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
-        multipliers = json.loads(server_config["channel_multipliers"])
+        multipliers = dict(json.loads(server_config["channel_multipliers"]))
         multipliers[f"{channel.id}"] = multiplier
-        multipliers = json.dumps(multiplier, indent=2)
+        multipliers = json.dumps(multipliers, indent=2)
         cur.execute("UPDATE server_config SET channel_multipliers = ? WHERE guild_id = ?",
                     [multipliers, src.guild.id])
         con.commit()
@@ -384,7 +382,7 @@ their characters for a boost to experience determination likelihood.""", status=
             src.edit = inter.edit_original_response
         if level < 1:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Level is below minimum!",
+                                             custom_title=None, description="Level is too low!",
                                              fields=None, footer_text=f"""The level you are attempting to edit is \
 below the minimum level.""", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -414,14 +412,14 @@ threshold is 999,999,999.""", status="alert")
         if experience < int(thresholds[f"{level - 1}"]):
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None,
-                                             description="Experience below amount needed for previous level!",
+                                             description="Experience is too low!",
                                              fields=None, footer_text=f"""The threshold you are attempting to set \
 is below the amount needed for level {level - 1} ({thresholds[f"{level - 1}"]}).""", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         if level > int(server_config["maximum_level"]):
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Level exceeds maximum for this server!",
+                                             custom_title=None, description="Level is too high!",
                                              fields=None, footer_text=f"""The level you are attempting to edit exceeds \
 the maximum level for this server ({server_config["maximum_level"]}).""", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -430,8 +428,8 @@ the maximum level for this server ({server_config["maximum_level"]}).""", status
             if experience >= int(thresholds[f"{level + 1}"]):
                 await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                                  custom_title=None,
-                                                 description="""Experience threshold meets or exceeds the threshold \
-for the following level!""", fields=None, footer_text=f"""The threshold for level {level + 1} is \
+                                                 description="""Experience threshold is too high!""", fields=None,
+                                                 footer_text=f"""The threshold for level {level + 1} is \
 {thresholds[f"{level + 1}"]}.""", status="alert")
                 return
         thresholds[str(level)] = experience
@@ -621,7 +619,7 @@ roles with names that are less than 50 characters.""", status="alert")
                 role_list = []
                 current_role = disnake.utils.get(src.guild.roles, id=role.id)
                 for role_id in json.loads(server_config["ignored_roles"]):
-                    role_resolve = disnake.utils.get(src.guild.channels, id=role_id)
+                    role_resolve = disnake.utils.get(src.guild.roles, id=role_id)
                     role_list.append(role_resolve)
                 view = disnake.ui.View(timeout=30)
                 selects = view.add_item(
@@ -660,7 +658,7 @@ ignored role on this server?""", fields=None,
                     await response.edit(embed=EmbedBuilder.embed, view=None)
                     return
                 for entry in selected:
-                    role_select = disnake.utils.get(src.guild.channels, id=int(entry))
+                    role_select = disnake.utils.get(src.guild.roles, id=int(entry))
                     role_list.remove(role_select)
                 roles = []
                 for entry in role_list:
@@ -823,15 +821,15 @@ the character name, and the level of the respective member/character.""",
             src.edit = inter.edit_original_response
         if level < 1:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Level is below minimum!",
+                                             custom_title=None, description="Level is too low!",
                                              fields=None, footer_text=f"""The level you are attempting to edit is \
-        below the minimum level.""", status="alert")
+below the minimum level.""", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         multiplier = float("{:.2f}".format(multiplier))
         if multiplier < 0.01:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Multiplier is below minimum supported!",
+                                             custom_title=None, description="Multiplier is too low!",
                                              fields=None,
                                              footer_text="The minimum supported level multiplier is 0.01.",
                                              status="alert")
@@ -839,7 +837,7 @@ the character name, and the level of the respective member/character.""",
             return
         if multiplier > 10.00:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Multiplier exceeds maximum supported!",
+                                             custom_title=None, description="Multiplier is too high!",
                                              fields=None,
                                              footer_text="The maximum supported level multiplier is 10.00.",
                                              status="alert")
@@ -855,20 +853,20 @@ the character name, and the level of the respective member/character.""",
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT maximum_level FROM server_config WHERE guild_id = ?",
+        cur.execute("SELECT maximum_level, level_multipliers FROM server_config WHERE guild_id = ?",
                     [src.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
         if level > int(server_config["maximum_level"]):
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Level exceeds maximum for this server!",
-                                             fields=None, footer_text=f"""The level you are attempting to edit exceeds \
+                                             custom_title=None, description="Level is too high!", fields=None,
+                                             footer_text=f"""The level you are attempting to edit exceeds \
 the maximum level for this server ({server_config["maximum_level"]}).""", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
-        multipliers = json.loads(server_config["level_multipliers"])
-        multipliers[level] = multiplier
-        multipliers = json.dumps(multiplier, indent=2)
+        multipliers = dict(json.loads(server_config["level_multipliers"]))
+        multipliers[f"{level}"] = multiplier
+        multipliers = json.dumps(multipliers, indent=2)
         try:
             con = sqlite3.connect("server_config.db", timeout=30.0)
         except OperationalError:
@@ -1004,6 +1002,104 @@ guild_id = ?""", [src.guild.id])
 and new maximum level to be one higher than each previous.\nPlease do not forget to update the thresholds!""",
                                          status="success")
         await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+
+    @staticmethod
+    async def mod_experience(self, ctx, inter, character_name, operator, amount, source):
+        src = None
+        if source == "slash":
+            src = inter
+        elif source == "message":
+            src = ctx
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description="Please wait.", fields=None,
+                                         footer_text="Ideally, you should never see this.", status="waiting")
+        response = await src.send(embed=EmbedBuilder.embed)
+        if operator not in ["+", "-"]:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Invalid operator!", fields=None,
+                                             footer_text="This command only supports addition (+) and subtraction (-).",
+                                             status="alert")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        if source == "slash":
+            response = inter
+            src.edit = inter.edit_original_response
+        if amount < 1:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Amount too low!", fields=None,
+                                             footer_text="The minimum amount that experience can be modified by is 1.",
+                                             status="alert")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        if amount > 999999998:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Amount too high!", fields=None,
+                                             footer_text="""The maximum amount that experience can be modified by is \
+999,999,998.""", status="alert")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute("SELECT character_name, player_id, experience FROM characters WHERE guild_id = ?",
+                    [src.guild.id])
+        characters = [dict(value) for value in cur.fetchall()]
+        con.close()
+        for character in characters:
+            if character["character_name"] == character_name:
+                break
+        else:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Character not found!",
+                                             fields=None, footer_text="Don't forget to surround the name in quotes.",
+                                             status="alert")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        if operator == "+" and amount + int(character["experience"]) > 999999998:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Experience is too high!",
+                                             fields=None, footer_text="""The maximum amount of experience after \
+modification is 999,999,998.""", status="alert")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        elif operator == "-" and amount - int(character["experience"]) < 1:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Experience is too low!",
+                                             fields=None, footer_text="""The minimum amount of experience after \
+modification is 1.""", status="alert")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        experience = int(character["experience"])
+        if operator == "+":
+            experience = int(character["experience"]) + amount
+        elif operator == "-":
+            experience = int(character["experience"]) - amount
+        try:
+            con = sqlite3.connect("characters.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None, description="Please try again in a moment.",
+                                             fields=None, footer_text="The database is busy.", status="failure")
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        cur = con.cursor()
+        cur.execute("UPDATE characters SET experience = ? WHERE character_name = ?, player_id = ?, guild_id = ?",
+                    [experience, character["character_name"], character["player_id"], src.guild.id])
+        con.commit()
+        con.close()
+        await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
+                                         custom_title=None, description=f"""Updated {character["character_name"]}'s \
+experience total to {experience}.""", fields=None, footer_text="""Their level and tier will update with the \
+character's next valid message.""", status="success")
+        await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+        return
 
     @staticmethod
     async def min_wiggle(self, ctx, inter, min_wiggle, source):
@@ -1213,14 +1309,14 @@ roles with names that are less than 50 characters.""", status="alert")
         multiplier = float("{:.2f}".format(multiplier))
         if multiplier < 0.01:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Multiplier is below minimum supported!",
+                                             custom_title=None, description="Multiplier is too low!",
                                              fields=None, footer_text="The minimum supported role multiplier is 0.01.",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         if multiplier > 10.00:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Multiplier exceeds maximum supported!",
+                                             custom_title=None, description="Multiplier is too high!",
                                              fields=None, footer_text="The maximum supported role multiplier is 10.00.",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -1237,9 +1333,9 @@ roles with names that are less than 50 characters.""", status="alert")
         cur = con.cursor()
         cur.execute("SELECT role_multipliers FROM server_config WHERE guild_id = ?", [src.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
-        multipliers = json.loads(server_config["role_multipliers"])
+        multipliers = dict(json.loads(server_config["role_multipliers"]))
         multipliers[f"{role.id}"] = multiplier
-        multipliers = json.dumps(multiplier, indent=2)
+        multipliers = json.dumps(multipliers, indent=2)
         cur.execute("UPDATE server_config SET role_multipliers = ? WHERE guild_id = ?",
                     [multipliers, src.guild.id])
         con.commit()
@@ -1267,7 +1363,7 @@ roles with names that are less than 50 characters.""", status="alert")
             src.edit = inter.edit_original_response
         if starting_level < 1:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Starting level is below supported!!",
+                                             custom_title=None, description="Starting level is too low!",
                                              fields=None, footer_text="The minimum starting level is 1.",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -1288,8 +1384,8 @@ guild_id = ?""", [src.guild.id])
         con.close()
         if starting_level > int(server_config["maximum_level"]):
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Starting level exceeds maximum level!",
-                                             fields=None, footer_text=f"""Please choose a starting level less than \
+                                             custom_title=None, description="Starting level is too high!", fields=None,
+                                             footer_text=f"""Please choose a starting level less than \
 this server's maximum level ({server_config["maximum_level"]}).""", status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
@@ -1337,7 +1433,7 @@ tier {starting_tier}.""", status="success")
             src.edit = inter.edit_original_response
         if tier < 1:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
-                                             custom_title=None, description="Tier is below minimum supported!",
+                                             custom_title=None, description="Tier is too low!",
                                              fields=None, footer_text="The minimum supported tier is 1.",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -1345,16 +1441,15 @@ tier {starting_tier}.""", status="success")
         if tier > 10:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None,
-                                             description="Tier exceeds maximum supported tier!",
-                                             fields=None,
+                                             description="Tier is too high!", fields=None,
                                              footer_text="The maximum number of tiers supported per server is 10.",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
-        if level < 1:  # TODO: "below/above [x] supported" to "too [x]"
+        if level < 1:
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None,
-                                             description="Level is below minimum supported!", fields=None,
+                                             description="Level is too low!", fields=None,
                                              footer_text="The minimum supported level is 1.",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -1376,7 +1471,7 @@ tier {starting_tier}.""", status="success")
         if level > int(server_config["maximum_level"]):
             await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None,
-                                             description="Threshold exceeds maximum level for this server!",
+                                             description="Threshold is too high!",
                                              fields=None,
                                              footer_text=f"""The threshold you are attempting to set exceeds the \
 maximum level for this server ({server_config["maximum_level"]}).""", status="alert")
@@ -1387,8 +1482,8 @@ maximum level for this server ({server_config["maximum_level"]}).""", status="al
             if level >= int(thresholds[f"{tier + 1}"]):
                 await EmbedBuilder.embed_builder(self=self, ctx=src, custom_color=None, custom_thumbnail=None,
                                                  custom_title=None,
-                                                 description="""Level threshold exceeds the threshold for the \
-following tier!""", fields=None, footer_text=f"""The threshold for tier {tier + 1} is \
+                                                 description="""Level threshold is too high!""", fields=None,
+                                                 footer_text=f"""The threshold for tier {tier + 1} is \
 {thresholds[f"{tier + 1}"]}.""", status="alert")
                 return
         thresholds[str(tier)] = level
@@ -1413,7 +1508,7 @@ following tier!""", fields=None, footer_text=f"""The threshold for tier {tier + 
 hit tier {tier}.", status="success")
         await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
 
-    @staticmethod  # TODO: Add descriptions to Slash Command arguments.
+    @staticmethod
     async def time_between(self, ctx, inter, time_between, source):
         src = None
         if source == "slash":
@@ -1782,6 +1877,32 @@ per message.""", dm_permission=False)
     @commands.guild_only()
     async def minimum_length_message(self, ctx, minimum_length: int):
         await self.minimum_length(self, ctx=ctx, inter=None, minimum_length=minimum_length, source="message")
+
+    @commands.slash_command(name="mod_experience",
+                            description="Modifies a character's experience by a specified amount.",
+                            dm_permission=False)
+    @commands.guild_only()
+    @commands.default_member_permissions(manage_guild=True)
+    async def mod_experience_slash(self, inter, character_name: str, operator: str, amount: int):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: Surround in quotes for names with spaces in them.
+        operator: + or -.
+        amount: Amount to modify the experience by. Min.: 1. Max.: 999,999,998.
+        """
+        await self.mod_experience(self, ctx=None, inter=inter, character_name=character_name, operator=operator,
+                                  amount=amount, source="slash")
+
+    @commands.group(aliases=["mod"], brief="Modify experience.",
+                    help="Modifies a character's experience by a specified amount.", name="mod_experience",
+                    usage="mod_experience <character> <+/-> <#>")
+    @commands.guild_only()
+    async def mod_experience_message(self, ctx, character_name: str, operator: str, amount: int):
+        await self.mod_experience(self, ctx=ctx, inter=None, character_name=character_name, operator=operator,
+                                  amount=amount, source="message")
 
     @commands.slash_command(name="ooc_end", description="Denotes the end of OOC messages.", dm_permission=False)
     @commands.guild_only()

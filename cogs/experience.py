@@ -110,7 +110,7 @@ FROM server_config WHERE guild_id = ?""", [ctx.guild.id])
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("""SELECT character_name, global, active, dm, channels, nicks \
+        cur.execute("""SELECT character_name, level, global, active, dm, channels, nicks \
 FROM characters WHERE player_id = ? AND guild_id = ?""", [ctx.author.id, ctx.guild.id])
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
@@ -191,7 +191,7 @@ FROM characters WHERE player_id = ? AND guild_id = ?""", [ctx.author.id, ctx.gui
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("""SELECT experience, level, next_experience FROM characters \
+        cur.execute("""SELECT character_name, experience, level, next_experience FROM characters \
 WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, ctx.guild.id, rewarded])
         character = [dict(value) for value in cur.fetchall()][0]
         con.close()
@@ -203,25 +203,45 @@ WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, 
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT time_between, experience_thresholds, base_percentage, level_multipliers, \
-role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?", [ctx.guild.id])
+        cur.execute("SELECT time_between, maximum_level, experience_thresholds, base_percentage, \
+level_multipliers, channel_multipliers, role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?",
+                    [ctx.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
+        if int(character["level"]) >= int(server_config["maximum_level"]):
+            return
         experience = int((int(json.loads(server_config["experience_thresholds"])[f"{int(character['level']) + 1}"])
-                          * float(server_config["base_percentage"])))
-        experience = int(int(json.loads(server_config["level_multipliers"])[f"{int(character['level'])}"]) * experience)
-        if json.loads(server_config["role_multipliers"]):
-            print(json.loads(server_config["role_multipliers"]))
-            for role, multiplier in json.loads(server_config["role_multipliers"]).items():
-                for author_role in ctx.author.roles:
-                    if int(role) == author_role.id:
-                        experience = int(experience * float(multiplier))
-        wiggle = float(str(random.uniform(float(server_config["min_wiggle"]), float(server_config["max_wiggle"])))[0:4])
-        # TODO: Wiggle has to be redone for decimal reasons.
-        experience = int(experience * wiggle) + int(character["experience"])
-        # TODO: Bugtest this and ensure it'll work with weird configs.
-        # TODO: Channel modifiers need to exist in this formula.
-        # TODO: Redo this shit entirely, it gave Rak 10k experience when it wasn't even his message
+                          * (float(server_config["base_percentage"]) / 100)))  # Sets the experience first as the
+        # specified percentage of the next level.
+        print(f"Base: {experience}")
+        if dict(json.loads(server_config["level_multipliers"])).get(str(character["level"])) is not None:
+            experience = int(experience *
+                             float(json.loads(server_config["level_multipliers"])[f"{character['level']}"]))
+            # Multiplies experience by the level multiplier for the current level, if it exists.
+            print(f"Level: {experience}")
+        if dict(json.loads(server_config["channel_multipliers"])).get(str(ctx.channel.id)) is not None:
+            experience = int(experience *
+                             float(json.loads(server_config["level_multipliers"])[f"{ctx.channel.id}"]))
+            # Multiplies experience by the channel multiplier for the channel in which the message was sent, if it
+            # exists.
+            print(f"Channel: {experience}")
+        for role_multiplied, multiplier in dict(json.loads(server_config["role_multipliers"])).items():
+            for role_in_author in ctx.author.roles:
+                if role_in_author.id == int(role_multiplied):
+                    experience = int(experience * float(multiplier))  # Multiplies experience by the role multiplier for
+                    # every role that the user has that has a multiplier.
+                    print(f"Role: {experience}")
+        min_wiggle = float("{:.2f}".format(float(server_config["min_wiggle"])))  # Establishes the lowest possible
+        # random wiggle.
+        max_wiggle = float("{:.2f}".format(float(server_config["max_wiggle"])))  # Establishes the highest possible
+        # random wiggle.
+        wiggle = float("{:.2f}".format(float(random.uniform(min_wiggle, max_wiggle))))  # Gets a random decimal to
+        # the hundredths between the minimum and maximum wiggle.
+        experience = int(experience * wiggle)  # Multiplies the experience by the random wiggle.
+        print(f"Wiggle: {experience}")
+        experience = experience + int(character["experience"])  # Adds the existing experience to the total,
+        # after all other math has been done.
+        old_exp = int(character["experience"])
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -251,6 +271,7 @@ character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
 character_name = ?""", [next_experience, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
         con.close()
+        print(f"{character['character_name']} +{experience - old_exp}!")
         if experience >= (json.loads(server_config["experience_thresholds"]))[f"{int(character["level"]) + 1}"]:
             await Experience.level(ctx=ctx, rewarded=rewarded)
 
