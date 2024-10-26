@@ -9,7 +9,7 @@ class EmbedBuilder(disnake.Embed):
         self.ctx = ctx
 
     @staticmethod
-    async def embed_builder(self, ctx, custom_color, custom_thumbnail, custom_title, description, fields, footer_text,
+    async def embed_builder(ctx, custom_color, custom_thumbnail, custom_title, description, fields, footer_text,
                             status):
         color = None
         thumbnail = None
@@ -25,7 +25,7 @@ class EmbedBuilder(disnake.Embed):
         alert_title = "Hm."
         deletion_color = disnake.Color(0xa80303)  # Mid. red
         deletion_thumbnail = "https://bg3.wiki/w/images/thumb/2/23/Disintegrate.webp/380px-Disintegrate.webp.png"
-        deletion_title = "Oh?!"  # TODO: Alter. Does not make sense contextually. Too lazy at the moment.
+        deletion_title = "Oh?!"
         failure_color = disnake.Color(0x5e0606)  # Dark red
         failure_thumbnail = "https://bg3.wiki/w/images/thumb/c/c4/Harm.webp/380px-Harm.webp.png"
         failure_title = "Oops!"
@@ -77,9 +77,9 @@ class EmbedBuilder(disnake.Embed):
         if custom_title is not None:
             title = custom_title
         embed = disnake.Embed(color=color, description=description, title=title)
-        if fields is not None:  # Fields code untested, but unnecessary atm.
+        if fields is not None:
             for field in fields:
-                embed.add_field(inline=field["inline"], name=field["name"], value=field["value"])
+                embed.add_field(inline=bool(field["inline"]), name=field["name"], value=field["value"])
         if ctx.author.guild_avatar is None:
             author_icon = ctx.author.avatar.url
         elif ctx.author.guild_avatar is not None:

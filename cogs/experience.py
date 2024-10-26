@@ -3,6 +3,7 @@ from bot import PREFIX
 from datetime import datetime
 
 import disnake
+from disnake import Forbidden
 from disnake.ext import commands
 
 import json
@@ -38,7 +39,7 @@ class Experience(commands.Cog):
         elif ctx.content.startswith("!"):
             return
         for role in ctx.author.roles:
-            if role.name.lower() == "player":
+            if role.name == "Player":
                 break
         else:
             return
@@ -203,7 +204,7 @@ WHERE player_id = ? AND guild_id = ? AND character_name = ?""", [ctx.author.id, 
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT time_between, maximum_level, experience_thresholds, base_percentage, \
+        cur.execute("SELECT time_between, maximum_level, experience_thresholds, tier_thresholds, base_percentage, \
 level_multipliers, channel_multipliers, role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?",
                     [ctx.guild.id])
         server_config = [dict(value) for value in cur.fetchall()][0]
@@ -213,24 +214,20 @@ level_multipliers, channel_multipliers, role_multipliers, min_wiggle, max_wiggle
         experience = int((int(json.loads(server_config["experience_thresholds"])[f"{int(character['level']) + 1}"])
                           * (float(server_config["base_percentage"]) / 100)))  # Sets the experience first as the
         # specified percentage of the next level.
-        print(f"Base: {experience}")
         if dict(json.loads(server_config["level_multipliers"])).get(str(character["level"])) is not None:
             experience = int(experience *
                              float(json.loads(server_config["level_multipliers"])[f"{character['level']}"]))
             # Multiplies experience by the level multiplier for the current level, if it exists.
-            print(f"Level: {experience}")
         if dict(json.loads(server_config["channel_multipliers"])).get(str(ctx.channel.id)) is not None:
             experience = int(experience *
                              float(json.loads(server_config["level_multipliers"])[f"{ctx.channel.id}"]))
             # Multiplies experience by the channel multiplier for the channel in which the message was sent, if it
             # exists.
-            print(f"Channel: {experience}")
         for role_multiplied, multiplier in dict(json.loads(server_config["role_multipliers"])).items():
             for role_in_author in ctx.author.roles:
                 if role_in_author.id == int(role_multiplied):
                     experience = int(experience * float(multiplier))  # Multiplies experience by the role multiplier for
                     # every role that the user has that has a multiplier.
-                    print(f"Role: {experience}")
         min_wiggle = float("{:.2f}".format(float(server_config["min_wiggle"])))  # Establishes the lowest possible
         # random wiggle.
         max_wiggle = float("{:.2f}".format(float(server_config["max_wiggle"])))  # Establishes the highest possible
@@ -238,17 +235,33 @@ level_multipliers, channel_multipliers, role_multipliers, min_wiggle, max_wiggle
         wiggle = float("{:.2f}".format(float(random.uniform(min_wiggle, max_wiggle))))  # Gets a random decimal to
         # the hundredths between the minimum and maximum wiggle.
         experience = int(experience * wiggle)  # Multiplies the experience by the random wiggle.
-        print(f"Wiggle: {experience}")
         experience = experience + int(character["experience"])  # Adds the existing experience to the total,
         # after all other math has been done.
-        old_exp = int(character["experience"])
+        # old_exp = int(character["experience"])
+        # new_level = 1
+        # for level, threshold in json.loads(server_config["experience_thresholds"]).items():
+        #     if threshold <= int(character["experience"]):
+        #         new_level = int(level)
+        # new_tier = 1
+        # for tier, threshold in json.loads(server_config["tier_thresholds"]).items():
+        #     if threshold <= new_level:
+        #         new_tier = int(tier)
+        new_level = 1
+        for level, threshold in json.loads(server_config["experience_thresholds"]).items():
+            if threshold <= int(character["experience"]):
+                new_level = int(level)
+        new_tier = 1
+        for tier, threshold in json.loads(server_config["tier_thresholds"]).items():
+            if threshold <= new_level:
+                new_tier = int(tier)
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
             return
         cur = con.cursor()
-        cur.execute("""UPDATE characters SET experience = ? WHERE player_id = ? AND guild_id = ? AND \
-character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
+        cur.execute("""UPDATE characters SET experience = ?, level = ?, tier = ? WHERE player_id = ? AND \
+guild_id = ? AND character_name = ?""",
+                    [experience, new_level, new_tier, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
         con.close()
         try:
@@ -271,7 +284,6 @@ character_name = ?""", [experience, ctx.author.id, ctx.guild.id, rewarded])
 character_name = ?""", [next_experience, ctx.author.id, ctx.guild.id, rewarded])
         con.commit()
         con.close()
-        print(f"{character['character_name']} +{experience - old_exp}!")
         if experience >= (json.loads(server_config["experience_thresholds"]))[f"{int(character["level"]) + 1}"]:
             await Experience.level(ctx=ctx, rewarded=rewarded)
 
@@ -283,10 +295,11 @@ character_name = ?""", [next_experience, ctx.author.id, ctx.guild.id, rewarded])
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("""SELECT experience FROM characters WHERE player_id = ? AND guild_id = ? AND \
+        cur.execute("""SELECT experience, tier FROM characters WHERE player_id = ? AND guild_id = ? AND \
 character_name = ?""", [ctx.author.id, ctx.guild.id, rewarded])
         character = [dict(value) for value in cur.fetchall()][0]
         con.close()
+        old_tier = character["tier"]
         try:
             con = sqlite3.connect("server_config.db", timeout=30.0)
         except OperationalError:
@@ -321,6 +334,18 @@ character_name = ?""", [new_level, new_tier, ctx.author.id, ctx.guild.id, reward
             message = re.sub(r"%LVL", str(new_level), message)
             message = re.sub(r"\\n", "\n", message)
             await channel.send(message)
+        if new_tier > int(old_tier):
+            tier_role = disnake.utils.get(ctx.guild.roles, name=f"Tier {new_tier}")
+            if tier_role is None:
+                try:
+                    await ctx.guild.create_role(name=f"Tier {new_tier}")
+                except Forbidden:
+                    pass
+                tier_role = disnake.utils.get(ctx.guild.roles, name=f"Tier {new_tier}")
+            try:
+                await ctx.author.add_roles(tier_role)
+            except Forbidden:
+                pass
 
 
 def setup(bot):
