@@ -281,7 +281,7 @@ CHANNELs with names that are less than 50 characters.""", status="alert")
             for character in characters:
                 if character["character_name"] == selected:
                     break
-        for character_channels in characters:  # TODO: Unique unsetting command.
+        for character_channels in characters:
             for channel_entry in json.loads(character_channels["channels"]):
                 if (channel.id == int(channel_entry)
                         and character_channels["character_name"] == character["character_name"]):
@@ -1268,12 +1268,12 @@ no longer NICK(s) of {character["character_name"]}.""", fields=None,
 character.""", status="alert")
                     await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
                     return
-        if len(json.loads(character["nicks"])) >= 3:
+        if len(json.loads(character["nicks"])) >= 5:
             await EmbedBuilder.embed_builder(ctx=src, custom_color=None, custom_thumbnail=None,
                                              custom_title=None,
-                                             description=f"{character['character_name']} already has 3 NICKs!",
+                                             description=f"{character['character_name']} already has 5 NICKs!",
                                              fields=None,
-                                             footer_text="You may have up to ten NICKs per character.",
+                                             footer_text="You may have up to five NICKs per character.",
                                              status="alert")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
@@ -1302,6 +1302,13 @@ likelihood.""", status="add_success")
     @commands.slash_command(name="active", description="Gives a character the ACTIVE tag.", dm_permission=False)
     @commands.guild_only()
     async def active_slash(self, inter, character_name: str = None):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: Name of the character you want to grant the ACTIVE tag to. Defaults to dropdown.
+        """
         await self.active(ctx=None, inter=inter, character_name=character_name, source="slash")
 
     @commands.command(aliases=["a"], brief="Grants ACTIVE to a character.",
@@ -1314,13 +1321,20 @@ likelihood.""", status="add_success")
                             dm_permission=False)
     @commands.guild_only()
     async def channel_slash(self, inter, character_name: str = None, channel: disnake.TextChannel = None):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: The name of the character you want to set a channel for. Defaults to dropdown.
+        channel: TextChannel/Thread in the server. Input existing channel to unset. Name max. length: 50.
+        """
         await self.channel(ctx=None, inter=inter, character_name=character_name, channel=channel, source="slash")
 
     @commands.command(aliases=["c"], brief="Sets preferred CHANNEL for a character.",
                       help="Sets the mentioned CHANNEL as preferred for the selected character.", name="channel",
                       usage="""channel "[name]" [channel.Mention]""")
     @commands.guild_only()
-    # TODO: on_error handling for ChannelNotFound raised when using a channel from another server/invalid channel.
     async def channel_message(self, ctx, character_name: str = None,
                               channel: disnake.TextChannel | disnake.ForumChannel = None):
         await self.channel(ctx=ctx, inter=None, character_name=character_name, channel=channel, source="message")
@@ -1328,6 +1342,13 @@ likelihood.""", status="add_success")
     @commands.slash_command(name="delete", description="Deletes a character.", dm_permission=False)
     @commands.guild_only()
     async def delete_slash(self, inter, character_name: str = None):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: The name of the character you want to delete. Defaults to dropdown.
+        """
         await self.delete(ctx=None, inter=inter, character_name=character_name, source="slash")
 
     @commands.command(aliases=["d"], brief="Deletes a character.", help="Deletes a selected character.",
@@ -1339,6 +1360,13 @@ likelihood.""", status="add_success")
     @commands.slash_command(name="dm", description="Gives a character the DM tag.", dm_permission=False)
     @commands.guild_only()
     async def dm_slash(self, inter, character_name: str = None):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: The name of the character you want to grant DM tag to. Defaults to dropdown.
+        """
         await self.dm(ctx=None, inter=inter, character_name=character_name, source="slash")
 
     @commands.command(aliases=["dungeonmaster"], brief="Grants DM to a character.",
@@ -1349,6 +1377,13 @@ likelihood.""", status="add_success")
     @commands.slash_command(name="global", description="Gives a character the GLOBAL tag.", dm_permission=False)
     @commands.guild_only()
     async def global_slash(self, inter, character_name: str = None):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: The name of the character you want to grant the GLOBAL tag to. Defaults to dropdown.
+        """
         await self.global_switch(ctx=None, inter=inter, character_name=character_name, source="slash")
 
     @commands.command(aliases=["g"], brief="Grants GLOBAL to a character.",
@@ -1368,7 +1403,7 @@ likelihood.""", status="add_success")
 
         inter:
         player: A Mention of the Member you want information on. Defaults to self.
-        character_name: The name of the character you want information on. Defaults to all.
+        character_name: The name of the character you want information on. Defaults to an overview of all.
         """
         await self.info(ctx=None, inter=inter, player=player, character_name=character_name, source="slash")
 
@@ -1382,6 +1417,13 @@ likelihood.""", status="add_success")
     @commands.slash_command(name="initialize", description="Initializes a character.", dm_permission=False)
     @commands.guild_only()
     async def initialize_slash(self, inter, character_name: str):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: Name of the character. Name max. length: 32. Use name they will be called most often!
+        """
         await self.initialize(ctx=None, inter=inter, character_name=character_name, source="slash")
 
     @commands.command(aliases=["i"], brief="Initializes a character.",
@@ -1393,6 +1435,14 @@ likelihood.""", status="add_success")
     @commands.slash_command(name="nick", description="Grants a NICK to a character.", dm_permission=False)
     @commands.guild_only()
     async def nick_slash(self, inter, character_name: str = None, character_nick: str = None):
+        """
+        Parameters
+        ----------
+
+        inter:
+        character_name: The name of the character you want to set nick for. Defaults to dropdown.
+        character_nick: The nickname you want to set. Nick max. length: 32. Defaults to "Nicholasname".
+        """
         await self.nick(ctx=None, inter=inter, character_name=character_name, character_nick=character_nick,
                         source="slash")
 

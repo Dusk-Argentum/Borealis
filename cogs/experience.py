@@ -145,9 +145,7 @@ FROM characters WHERE player_id = ? AND guild_id = ?""", [ctx.author.id, ctx.gui
                 # and misuse.
                 nicks = json.loads(character["nicks"])
                 for nick in nicks:
-                    nick_search_pattern = f"{nick[0].capitalize()}{nick[1:].lower()}"
-                    nick_search = re.search(rf"[\s|*|\"|\']{nick_search_pattern}[\s|*|\"|\'|.|,|?|!]",
-                                            ctx.content)
+                    nick_search = re.search(rf"[\s|*|\"|\']{nick}[\s|*|\"|\'|.|,|?|!]", ctx.content)
                     if nick_search is not None:
                         points += 4
             underlined_name_search = re.search(rf"_{r"{2}"}{name_search_pattern}_{r"{2}"}", ctx.content)

@@ -1892,7 +1892,7 @@ per message.""", dm_permission=False)
 
         inter:
         character_name: Surround in quotes for names with spaces in them.
-        operator: + or -.
+        operator: +, -, or = (add, subtract, set).
         amount: Amount to modify the experience by. Min.: 1. Max.: 999,999,998.
         """
         await self.mod_experience(ctx=None, inter=inter, character_name=character_name, operator=operator,

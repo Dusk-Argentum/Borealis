@@ -26,7 +26,10 @@ elif TOKEN == os.environ.get("BorealisBETA_TOKEN"):
 command_sync_flags = commands.CommandSyncFlags.default()
 
 
-intents = disnake.Intents.all()
+# intents = disnake.Intents.all()
+intents = disnake.Intents.default()
+intents.members = True
+intents.message_content = True
 
 
 bot = commands.Bot(case_insensitive=True, command_prefix=PREFIX, command_sync_flags=command_sync_flags,
@@ -39,6 +42,7 @@ bot.remove_command("help")
 bot.load_extension("cogs.aurora")
 bot.load_extension("cogs.characters")
 bot.load_extension("cogs.dev")
+bot.load_extension("cogs.events")
 bot.load_extension("cogs.experience")
 
 
