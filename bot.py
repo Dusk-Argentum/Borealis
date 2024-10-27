@@ -5,13 +5,13 @@ from disnake.ext import commands
 import os
 
 
-DESCRIPTION = """A bot for use on the Northern Lights Province Discord server to facilitate playing multiple D&D
+DESCRIPTION = """A bot for use on the Northern Lights Province Discord server to facilitate playing multiple D&D \
 characters on the same Discord account while still retaining the ability to gain experience based on messages."""
 GUILD = 348897377400258560
 PREFIX = "DEFAULT_PREFIX"
 TESTS = None
 TOKEN = os.environ.get("BorealisBETA_TOKEN")
-VERSION = "0.0.0a"
+VERSION = "0.0.1-BETA-RC1"
 
 if TOKEN == os.environ.get("Borealis_TOKEN"):
     GUILD = 1031055347319832666
@@ -19,7 +19,7 @@ if TOKEN == os.environ.get("Borealis_TOKEN"):
     TESTS = None
 elif TOKEN == os.environ.get("BorealisBETA_TOKEN"):
     GUILD = 348897377400258560
-    PREFIX = "="
+    PREFIX = "."
     TESTS = [GUILD]
 
 
@@ -44,6 +44,7 @@ bot.load_extension("cogs.characters")
 bot.load_extension("cogs.dev")
 bot.load_extension("cogs.events")
 bot.load_extension("cogs.experience")
+bot.load_extension("cogs.help")
 
 
 if __name__ == "__main__":

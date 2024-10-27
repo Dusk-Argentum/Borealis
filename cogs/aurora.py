@@ -1900,7 +1900,7 @@ per message.""", dm_permission=False)
 
     @commands.group(aliases=["mod"], brief="Modify experience.",
                     help="Modifies a character's experience by a specified amount.", name="mod_experience",
-                    usage="mod_experience <character> <+/-> <#>")
+                    usage="mod_experience <character> <+/-/=> <#>")
     @commands.guild_only()
     async def mod_experience_message(self, ctx, character_name: str, operator: str, amount: int):
         await self.mod_experience(ctx=ctx, inter=None, character_name=character_name, operator=operator,

@@ -6,6 +6,7 @@ from bot import PREFIX
 from datetime import datetime, timezone
 
 import disnake
+from disnake import Forbidden
 from disnake.ext import commands
 from disnake.ext.commands import BotMissingPermissions, ChannelNotFound, CheckFailure, CommandInvokeError, \
     CommandNotFound, MemberNotFound, MissingAnyRole, NoPrivateMessage, NotOwner, UnexpectedQuoteError, UserNotFound
@@ -133,10 +134,25 @@ caused the error detailed below."""
                      1, "{}", "{}", "{}", 1, 1, "{}", "{}", 1, "{}", 0, 0])
         con.commit()
         con.close()
+        player_role = disnake.utils.get(guild.roles, name="Player")
+        if player_role is None:
+            try:
+                await guild.create_role(name="Player")
+            except Forbidden:
+                await guild.leave()
+                return
+        aurora_role = disnake.utils.get(guild.roles, name="Aurora")
+        if aurora_role is None:
+            try:
+                await guild.create_role(name="Aurora")
+            except Forbidden:
+                await guild.leave()
+                return
 
     @commands.Cog.listener()
     async def on_ready(self):
         await asyncio.sleep(1)
+        await self.bot.change_presence(activity=disnake.Game(f"TTRPGs! | /help"))
         print(f"{self.bot.user.name} is online! Awaiting commands and messages.")
 
 
