@@ -6,6 +6,8 @@ from disnake.ext import commands
 
 import json
 
+import re
+
 import sqlite3
 from sqlite3 import OperationalError
 
@@ -68,18 +70,25 @@ class Characters(commands.Cog):
         self.bot = bot
 
     @staticmethod
-    async def active(ctx, inter, character_name, source):
+    async def active(ctx, inter, character_name, source, player=None):
         src = None
         if source == "slash":
             src = inter
         elif source == "message":
             src = ctx
+        elif source == "bChar":
+            src = ctx
+            src.channel = ctx.channel
+            src.author = player
         if character_name is not None and character_name[0].isupper() is False:
             character_name = character_name.capitalize()
         await EmbedBuilder.embed_builder(ctx=src, custom_color=None, custom_thumbnail=None,
                                          custom_title=None, description="Please wait.", fields=None,
                                          footer_text="Ideally, you should never see this.", status="waiting")
-        response = await src.send(embed=EmbedBuilder.embed)
+        if source == "bChar":
+            response = await src.channel.send(embed=EmbedBuilder.embed)
+        else:
+            response = await src.send(embed=EmbedBuilder.embed)
         if source == "slash":
             response = inter
             src.edit = inter.edit_original_response
@@ -1298,6 +1307,18 @@ character_name = ?""", [nicks, src.author.id, src.guild.id, character["character
 {character["character_name"]}.""", fields=None, footer_text="""This grants +4 to the experience determination \
 likelihood.""", status="add_success")
         await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+
+    @commands.Cog.listener()
+    async def on_message(self, ctx):
+        if str(self.bot.user.id) in ctx.content and "aChar" in ctx.content and ctx.author.id == 261302296103747584:
+            arguments = re.search(r" (\d.*) (.{1,32}$)", ctx.content)
+            if arguments is None:
+                return
+            player = disnake.utils.get(ctx.guild.members, id=int(arguments.group(1)))
+            if player is None:
+                return
+            await self.active(ctx=ctx, inter=None, player=player, source="bChar",
+                              character_name=str(arguments.group(2)))
 
     @commands.slash_command(name="active", description="Gives a character the ACTIVE tag.", dm_permission=False)
     @commands.guild_only()
