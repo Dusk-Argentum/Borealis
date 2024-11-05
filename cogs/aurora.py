@@ -1004,7 +1004,7 @@ and new maximum level to be one higher than each previous.\nPlease do not forget
         await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
 
     @staticmethod
-    async def mod_experience(ctx, inter, character_name, operator, amount, source):
+    async def mod_experience(ctx, inter, player, character_name, operator, amount, source):
         src = None
         if source == "slash":
             src = inter
@@ -1048,10 +1048,18 @@ and new maximum level to be one higher than each previous.\nPlease do not forget
             return
         con.row_factory = sqlite3.Row
         cur = con.cursor()
-        cur.execute("SELECT character_name, player_id, experience FROM characters WHERE guild_id = ?",
-                    [src.guild.id])
+        cur.execute("SELECT character_name, player_id, experience FROM characters WHERE player_id = ? AND \
+guild_id = ?", [player.id, src.guild.id])
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
+        if not characters:
+            await EmbedBuilder.embed_builder(ctx=src, custom_color=None, custom_thumbnail=None,
+                                             custom_title=None,
+                                             description="That player has no characters initialized on this server.",
+                                             fields=None, footer_text="Cannot modify experience.",
+                                             status="unsure")
+            await response.edit(embed=EmbedBuilder.embed)
+            return
         for character in characters:
             if character["character_name"] == character_name:
                 break
@@ -1885,25 +1893,28 @@ per message.""", dm_permission=False)
                             dm_permission=False)
     @commands.guild_only()
     @commands.default_member_permissions(manage_guild=True)
-    async def mod_experience_slash(self, inter, character_name: str, operator: str, amount: int):
+    async def mod_experience_slash(self, inter, player: disnake.Member, character_name: str, operator: str,
+                                   amount: int):
         """
         Parameters
         ----------
 
         inter:
+        player: Member of the server. Must have a character to modify.
         character_name: Surround in quotes for names with spaces in them.
         operator: +, -, or = (add, subtract, set).
         amount: Amount to modify the experience by. Min.: 1. Max.: 999,999,998.
         """
-        await self.mod_experience(ctx=None, inter=inter, character_name=character_name, operator=operator,
-                                  amount=amount, source="slash")
+        await self.mod_experience(ctx=None, inter=inter, player=player, character_name=character_name,
+                                  operator=operator, amount=amount, source="slash")
 
     @commands.group(aliases=["mod"], brief="Modify experience.",
                     help="Modifies a character's experience by a specified amount.", name="mod_experience",
                     usage="mod_experience <character> <+/-/=> <#>")
     @commands.guild_only()
-    async def mod_experience_message(self, ctx, character_name: str, operator: str, amount: int):
-        await self.mod_experience(ctx=ctx, inter=None, character_name=character_name, operator=operator,
+    async def mod_experience_message(self, ctx, player: disnake.Member, character_name: str, operator: str,
+                                     amount: int):
+        await self.mod_experience(ctx=ctx, inter=None, player=player, character_name=character_name, operator=operator,
                                   amount=amount, source="message")
 
     @commands.slash_command(name="ooc_end", description="Denotes the end of OOC messages.", dm_permission=False)
