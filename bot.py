@@ -32,8 +32,15 @@ intents.members = True
 intents.message_content = True
 
 
-bot = commands.Bot(case_insensitive=True, command_prefix=PREFIX, command_sync_flags=command_sync_flags,
-                   description=DESCRIPTION, intents=intents, test_guilds=TESTS, owner_id=97153790897045504)
+bot = commands.Bot(
+    case_insensitive=True,
+    command_prefix=PREFIX,
+    command_sync_flags=command_sync_flags,
+    description=DESCRIPTION,
+    intents=intents,
+    test_guilds=TESTS,
+    owner_id=97153790897045504,
+)
 
 
 bot.remove_command("help")
