@@ -203,8 +203,6 @@ player_id = ? AND guild_id = ?""",
             ):
                 dm_choose = True
                 dm_roles = json.loads(server_config["dm_roles"])
-                for role in dm_roles:
-                    dm_roles.append(role)
             if (
                 dm_choose is True and dm_roles is not None
             ):  # DM check. Allows a DM to set a preferred character for
@@ -246,24 +244,29 @@ guild_id = ? AND character_name = ?""",
         cur = con.cursor()
         cur.execute(
             "SELECT time_between, maximum_level, experience_thresholds, tier_thresholds, base_percentage, \
-level_multipliers, channel_multipliers, role_multipliers, min_wiggle, max_wiggle FROM server_config WHERE guild_id = ?",
+level_multipliers, channel_multipliers, role_multipliers, min_wiggle, max_wiggle, flat_rate_toggle, flat_rate_amount \
+FROM server_config WHERE guild_id = ?",
             [ctx.guild.id],
         )
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
         if int(character["level"]) >= int(server_config["maximum_level"]):
             return
-        experience = int(
-            (
-                int(
-                    json.loads(server_config["experience_thresholds"])[
-                        f"{int(character['level']) + 1}"
-                    ]
+        experience = None
+        if int(server_config["flat_rate_toggle"]) == 0:
+            experience = int(
+                (
+                    int(
+                        json.loads(server_config["experience_thresholds"])[
+                            f"{int(character['level']) + 1}"
+                        ]
+                    )
+                    * (float(server_config["base_percentage"]) / 100)
                 )
-                * (float(server_config["base_percentage"]) / 100)
-            )
-        )  # Sets the experience first as the
-        # specified percentage of the next level.
+            )  # Sets the experience first as the
+            # specified percentage of the next level.
+        elif int(server_config["flat_rate_toggle"]) == 1:
+            experience = int(server_config["flat_rate_amount"])
         if (
             dict(json.loads(server_config["level_multipliers"])).get(
                 str(character["level"])
@@ -317,6 +320,7 @@ level_multipliers, channel_multipliers, role_multipliers, min_wiggle, max_wiggle
         experience = int(
             experience * wiggle
         )  # Multiplies the experience by the random wiggle.
+        experience_gained = experience
         experience = experience + int(
             character["experience"]
         )  # Adds the existing experience to the total,
@@ -376,6 +380,10 @@ AND character_name = ?""",
         )
         con.commit()
         con.close()
+        if ctx.channel.id in [1303473754638258176, 1291623487990927411]:
+            await ctx.channel.send(
+                f"{rewarded} just gained {experience_gained} experience for that message!"
+            )
         if (
             experience
             >= (json.loads(server_config["experience_thresholds"]))[

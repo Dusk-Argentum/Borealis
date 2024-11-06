@@ -15,12 +15,12 @@ VERSION = "0.0.1-BETA-RC1"
 
 if TOKEN == os.environ.get("Borealis_TOKEN"):
     GUILD = 1031055347319832666
-    PREFIX = "!"
+    PREFIX = "PLACEHOLDER"
     TESTS = None
 elif TOKEN == os.environ.get("BorealisBETA_TOKEN"):
     GUILD = 348897377400258560
-    PREFIX = "."
-    TESTS = [GUILD]
+    PREFIX = "="
+    TESTS = [GUILD, 1031055347319832666]
 
 
 command_sync_flags = commands.CommandSyncFlags.default()

@@ -68,7 +68,7 @@ class Aurora(commands.Cog):
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -152,7 +152,7 @@ level, before multipliers.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -269,7 +269,7 @@ characters.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -349,7 +349,7 @@ characters.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -415,7 +415,7 @@ experience.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -551,6 +551,7 @@ roles.""",
                 break
         else:
             roles = json.loads(server_config["dm_roles"])
+            print(type(roles))
             roles.append(role.id)
             roles = json.dumps(roles)
         try:
@@ -602,7 +603,7 @@ experience determination likelihood.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -737,6 +738,153 @@ experience determination likelihood.""",
         await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
 
     @staticmethod
+    async def flat_rate_amount(ctx, inter, flat_amount, source):
+        src = None
+        if source == "slash":
+            src = inter
+        elif source == "message":
+            src = ctx
+        await EmbedBuilder.embed_builder(
+            ctx=src,
+            custom_color=None,
+            custom_thumbnail=None,
+            custom_title=None,
+            description="Please wait.",
+            fields=None,
+            footer_text="This should only take a moment!",
+            status="waiting",
+        )
+        response = await src.send(embed=EmbedBuilder.embed)
+        if source == "slash":
+            response = inter
+            src.edit = inter.edit_original_response
+        if flat_amount < 1:
+            await EmbedBuilder.embed_builder(
+                ctx=src,
+                custom_color=None,
+                custom_thumbnail=None,
+                custom_title=None,
+                description="Flat rate is too low!",
+                fields=None,
+                footer_text="""The minimum amount of experience for a flat rate is 1. To disable, use \
+flat_rate_toggle.""",
+                status="alert",
+            )
+            return
+        if flat_amount > 9999:
+            await EmbedBuilder.embed_builder(
+                ctx=src,
+                custom_color=None,
+                custom_thumbnail=None,
+                custom_title=None,
+                description="Flat rate is too high!",
+                fields=None,
+                footer_text="For no particular reason, the maxmimum amount for a flat rate is 9,999.",
+                status="alert",
+            )
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        try:
+            con = sqlite3.connect("server_config.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(
+                ctx=src,
+                custom_color=None,
+                custom_thumbnail=None,
+                custom_title=None,
+                description="Please try again in a moment.",
+                fields=None,
+                footer_text="The database is busy.",
+                status="failure",
+            )
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        cur = con.cursor()
+        cur.execute(
+            "UPDATE server_config SET flat_rate_amount = ? WHERE guild_id = ?",
+            [time_between, src.guild.id],
+        )
+        con.commit()
+        con.close()
+        await EmbedBuilder.embed_builder(
+            ctx=src,
+            custom_color=None,
+            custom_thumbnail=None,
+            custom_title=None,
+            description=f"""Set the amount of flat-rate experience per message to {flat_amount} experience.""",
+            fields=None,
+            footer_text="""The maximum amount of flat-rate experience per message is 9,999.""",
+            status="success",
+        )
+        await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+
+    @staticmethod
+    async def flat_rate_toggle(ctx, inter, source):
+        src = None
+        if source == "slash":
+            src = inter
+        elif source == "message":
+            src = ctx
+        await EmbedBuilder.embed_builder(
+            ctx=src,
+            custom_color=None,
+            custom_thumbnail=None,
+            custom_title=None,
+            description="Please wait.",
+            fields=None,
+            footer_text="This should only take a moment!",
+            status="waiting",
+        )
+        response = await src.send(embed=EmbedBuilder.embed)
+        if source == "slash":
+            response = inter
+            src.edit = inter.edit_original_response
+        try:
+            con = sqlite3.connect("server_config.db", timeout=30.0)
+        except OperationalError:
+            await EmbedBuilder.embed_builder(
+                ctx=src,
+                custom_color=None,
+                custom_thumbnail=None,
+                custom_title=None,
+                description="Please try again in a moment.",
+                fields=None,
+                footer_text="The database is busy.",
+                status="failure",
+            )
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute(
+            "SELECT flat_rate_toggle FROM server_config WHERE guild_id = ?",
+            [src.guild.id],
+        )
+        server_config = [dict(value) for value in cur.fetchall()][0]
+        flat_rate_toggle = None
+        if int(server_config["flat_rate_toggle"]) == 1:
+            flat_rate_toggle = 0
+        elif int(server_config["flat_rate_toggle"]) == 0:
+            flat_rate_toggle = 1
+        cur.execute(
+            "UPDATE server_config SET flat_rate_toggle = ? WHERE guild_id = ?",
+            [dm_choose, src.guild.id],
+        )
+        con.commit()
+        con.close()
+        await EmbedBuilder.embed_builder(
+            ctx=src,
+            custom_color=None,
+            custom_thumbnail=None,
+            custom_title=None,
+            description=f"Updated flat rate toggle to {flat_rate_toggle}.",
+            fields=None,
+            footer_text="If flat rate toggle is 1, players will receive a set amount of experience per message.",
+            status="success",
+        )
+        await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+
+    @staticmethod
     async def ignore_channel(ctx, inter, channel, source):
         src = None
         if source == "slash":
@@ -750,7 +898,7 @@ experience determination likelihood.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -944,7 +1092,7 @@ ignored channels.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1131,7 +1279,7 @@ ignored roles.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1250,7 +1398,7 @@ characters.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1319,7 +1467,7 @@ level of the respective member/character.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1454,7 +1602,7 @@ level of the respective member/character.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1523,7 +1671,7 @@ level of the respective member/character.""",
             custom_title=None,
             description=f"Updated maximum wiggle to {max_wiggle}.",
             fields=None,
-            footer_text=f"""Experience per message will be multiplied by between {server_config["minimum_wiggle"]} and \
+            footer_text=f"""Experience per message will be multiplied by between {server_config["min_wiggle"]} and \
 {max_wiggle}. If both wiggles are 1.00, there is no wiggle.""",
             status="success",
         )
@@ -1543,7 +1691,7 @@ level of the respective member/character.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1655,7 +1803,7 @@ than each previous.\nPlease do not forget to update the thresholds!""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1840,7 +1988,7 @@ than each previous.\nPlease do not forget to update the thresholds!""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1929,7 +2077,7 @@ than each previous.\nPlease do not forget to update the thresholds!""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -2011,7 +2159,7 @@ characters permitted per message.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -2080,7 +2228,7 @@ long, including spaces.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -2149,7 +2297,7 @@ long, including spaces.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -2267,7 +2415,7 @@ characters.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -2383,7 +2531,7 @@ characters.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -2529,7 +2677,7 @@ characters.""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -2786,6 +2934,59 @@ per message.""",
         await self.experience_threshold(
             ctx=ctx, inter=None, level=level, experience=experience, source="message"
         )
+
+    @commands.slash_command(
+        name="flat_rate_amount",
+        description="Sets the amount of experience gained per message.",
+        dm_permission=False,
+    )
+    @commands.guild_only()
+    @commands.default_member_permissions(manage_guild=True)
+    async def flat_rate_amount_slash(self, inter, flat_amount: int):
+        """
+        Parameters
+        ----------
+
+        inter:
+        flat_amount: Amount of experience gained. Min.: 1. Max.: 9,999.
+        """
+        await self.flat_rate_amount(
+            ctx=None, inter=inter, flat_amount=flat_amount, source="slash"
+        )
+
+    @commands.group(
+        aliases=["flat_amount"],
+        brief="Sets flat amount.",
+        help="Sets the amount of experience gained per message.",
+        name="flat_rate_amount",
+        usage="flat_rate_amount <#>",
+    )
+    @commands.guild_only()
+    async def flat_rate_amount_message(self, ctx, flat_amount: int):
+        await self.flat_rate_amount(
+            ctx=ctx, inter=None, flat_amount=flat_amount, source="message"
+        )
+
+    @commands.slash_command(
+        name="flat_rate_toggle",
+        description="Toggles a set amount of experience being rewarded per valid message.",
+        dm_permission=False,
+    )
+    @commands.guild_only()
+    @commands.default_member_permissions(manage_guild=True)
+    async def flat_rate_toggle_slash(self, inter):
+        await self.flat_rate_toggle(ctx=None, inter=inter, source="slash")
+
+    @commands.group(
+        aliases=["flat_toggle"],
+        brief="Toggles flat rate.",
+        help="Toggles a set amount of experience being rewarded per valid message.",
+        name="flat_rate_toggle",
+        usage="flat_rate_toggle",
+    )
+    @commands.guild_only()
+    async def flat_rate_toggle_message(self, ctx):
+        await self.flat_rate_toggle(ctx=ctx, inter=None, source="message")
 
     @commands.slash_command(
         name="ignore_channel",

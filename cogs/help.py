@@ -38,8 +38,17 @@ function without it!""",
                 )
                 return
         for cog in self.bot.cogs:
-            if cog == "Aurora" and aurora_role not in src.author.roles:
-                continue
+            if cog == "Aurora":
+                if (
+                    src.author.guild_permissions.manage_guild is True
+                    or aurora_role in src.author.roles
+                ):
+                    pass
+                elif (
+                    src.author.guild_permissions.manage_guild is False
+                    or aurora_role not in src.author.roles
+                ):
+                    continue
             elif cog == "Dev" and src.author.id != self.bot.owner_id:
                 continue
             elif cog == "Events":
@@ -50,12 +59,17 @@ function without it!""",
                 continue
             if module is not None and module.lower() != cog.lower():
                 continue
-            elif (
-                module is not None
-                and module.lower() == "aurora"
-                and aurora_role not in src.author.roles
-            ):
-                continue
+            elif module is not None and module.lower() == "aurora":
+                if (
+                    src.author.guild_permissions.manage_guild is True
+                    or aurora_role in src.author.roles
+                ):
+                    pass
+                elif (
+                    src.author.guild_permissions.manage_guild is False
+                    or aurora_role not in src.author.roles
+                ):
+                    return
             fields = []
             for command in self.bot.get_cog(cog).walk_commands():
                 fields.append(

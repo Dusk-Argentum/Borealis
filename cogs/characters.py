@@ -97,7 +97,7 @@ class Characters(commands.Cog):
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         if source == "bChar":
@@ -299,7 +299,7 @@ class Characters(commands.Cog):
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -646,7 +646,7 @@ character_name = ?""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -810,7 +810,7 @@ character_name = ?""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -880,50 +880,47 @@ character_name = ?""",
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         dm_roles = []
-        for role in server_config["dm_roles"]:
+        for role in json.loads(server_config["dm_roles"]):
             role = disnake.utils.get(src.guild.roles, id=role)
-            dm_roles.append(role)
+            dm_roles.append(role.id)
         for role in src.author.roles:
-            for dm_role in dm_roles:
-                if role.id == dm_role:
-                    break
-            else:
-                try:
-                    con = sqlite3.connect("characters.db", timeout=30.0)
-                except OperationalError:
-                    await EmbedBuilder.embed_builder(
-                        ctx=src,
-                        custom_color=None,
-                        custom_thumbnail=None,
-                        custom_title=None,
-                        description="Please try again in a moment.",
-                        fields=None,
-                        footer_text="The database is busy.",
-                        status="failure",
-                    )
-                    await response.edit(
-                        content=None, embed=EmbedBuilder.embed, view=None
-                    )
-                    return
-                cur = con.cursor()
-                cur.execute(
-                    "UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND dm = 1",
-                    [src.author.id, src.guild.id],
-                )
-                con.commit()
-                con.close()
+            if role.id in dm_roles:
+                break
+        else:
+            try:
+                con = sqlite3.connect("characters.db", timeout=30.0)
+            except OperationalError:
                 await EmbedBuilder.embed_builder(
                     ctx=src,
                     custom_color=None,
                     custom_thumbnail=None,
                     custom_title=None,
-                    description="You are not a DM!",
+                    description="Please try again in a moment.",
                     fields=None,
-                    footer_text="""DM tag unset from all of your characters in this server as a failsafe.""",
-                    status="alert",
+                    footer_text="The database is busy.",
+                    status="failure",
                 )
                 await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
                 return
+            cur = con.cursor()
+            cur.execute(
+                "UPDATE characters SET dm = 0 WHERE player_id = ? AND guild_id = ? AND dm = 1",
+                [src.author.id, src.guild.id],
+            )
+            con.commit()
+            con.close()
+            await EmbedBuilder.embed_builder(
+                ctx=src,
+                custom_color=None,
+                custom_thumbnail=None,
+                custom_title=None,
+                description="You are not a DM!",
+                fields=None,
+                footer_text="""DM tag unset from all of your characters in this server as a failsafe.""",
+                status="alert",
+            )
+            await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
+            return
         character = None
         for character in characters:
             if character["character_name"] == character_name:
@@ -1086,7 +1083,7 @@ is set to True by an administrator."""
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1243,7 +1240,7 @@ is set to True by an administrator."""
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1427,7 +1424,7 @@ in the `character_name` argument. Be sure to use quotes!""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
@@ -1665,7 +1662,7 @@ WHERE guild_id = ?""",
             return
         cur = con.cursor()
         cur.execute(
-            """INSERT INTO characters VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0, "{}", "{}")""",
+            """INSERT INTO characters VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0, "[]", "[]")""",
             [
                 str(character_id),
                 str(character_name),
@@ -1775,7 +1772,7 @@ function without it!""",
             custom_title=None,
             description="Please wait.",
             fields=None,
-            footer_text="Ideally, you should never see this.",
+            footer_text="This should only take a moment!",
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)

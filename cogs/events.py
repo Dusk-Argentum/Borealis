@@ -173,7 +173,8 @@ caused the error detailed below."""
             return
         cur = con.cursor()
         cur.execute(
-            """INSERT INTO server_config VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO server_config VALUES \
+(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 str(guild.id),
                 2,
@@ -189,12 +190,14 @@ caused the error detailed below."""
                 "{}",
                 "{}",
                 "{}",
+                1.0,
+                1.0,
+                0,
+                0,
+                "[]",
+                "[]",
                 1,
-                1,
-                "{}",
-                "{}",
-                1,
-                "{}",
+                "[]",
                 0,
                 0,
             ],
