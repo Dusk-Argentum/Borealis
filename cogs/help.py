@@ -38,7 +38,10 @@ function without it!""",
                     status="failure",
                 )
                 return
+        fields = []
+        field_count = 0
         for cog in self.bot.cogs:
+            cog_name = cog
             if cog == "Aurora":
                 if (
                     src.author.guild_permissions.manage_guild is True
@@ -71,27 +74,44 @@ function without it!""",
                     or aurora_role not in src.author.roles
                 ):
                     return
-            fields = []
+            commands_list = []
             for command in self.bot.get_cog(cog).walk_commands():
-                fields.append(
-                    {
-                        "inline": False,
-                        "name": f"{command.name} (`{"`, `".join(command.aliases)}`)",
-                        "value": f"""{command.help}\n`/{command.usage}` (`{PREFIX}{command.usage}`)""",
-                    }
+                commands_list.append(
+                    f"""**{command.name}** | {command.help} (`/{command.usage}`)"""
                 )
-            await EmbedBuilder.embed_builder(
-                ctx=src,
-                custom_color=disnake.Color(0x023D08),
-                custom_thumbnail=None,
-                custom_title=f"{cog}: Commands",
-                description="""Arguments in `<>` are required. Arguments in `[]` have \
-default values that can be overwritten.""",
-                fields=fields,
-                footer_text=f"Made by @dusk_argentum! | Version: {VERSION}",
-                status=None,
+                next_command = next(self.bot.get_cog(cog).walk_commands())
+                next_command_append = f"**{next_command.name}** | {next_command.help} (`/{next_command.usage}`)"
+                if len(str(commands_list)) + len(str(next_command_append)) > 1024:
+                    fields.append(
+                        {
+                            "inline": False,
+                            "name": f"{cog_name}",
+                            "value": f"{'\n'.join(commands_list)}",
+                        }
+                    )
+                    commands_list = []
+                    field_count += 1
+                    cog_name = ""
+                    continue
+            fields.append(
+                {
+                    "inline": False,
+                    "name": f"{cog_name}",
+                    "value": f"{'\n'.join(commands_list)}",
+                }
             )
-            await src.send(embed=EmbedBuilder.embed)
+        await EmbedBuilder.embed_builder(
+            ctx=src,
+            custom_color=disnake.Color(0x023D08),
+            custom_thumbnail=None,
+            custom_title=f"Borealis: Commands",
+            description="""Arguments in `<>` are required. Arguments in `[]` have \
+default values that can be overwritten.""",
+            fields=fields,
+            footer_text=f"Made by @dusk_argentum! | Version: {VERSION}",
+            status=None,
+        )
+        await src.send(embed=EmbedBuilder.embed)
 
     @commands.slash_command(
         name="help",
