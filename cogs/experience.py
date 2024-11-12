@@ -255,44 +255,29 @@ FROM server_config WHERE guild_id = ?",
         experience = None
         if int(server_config["flat_rate_toggle"]) == 0:
             experience = int(
-                (
-                    int(
-                        json.loads(server_config["experience_thresholds"])[
-                            f"{int(character['level']) + 1}"
-                        ]
-                    )
-                    * (float(server_config["base_percentage"]) / 100)
-                )
+                json.loads(server_config["experience_thresholds"])[
+                    f"{int(character['level']) + 1}"
+                ]
+            ) * (
+                float(server_config["base_percentage"]) / 100
             )  # Sets the experience first as the
             # specified percentage of the next level.
         elif int(server_config["flat_rate_toggle"]) == 1:
             experience = int(server_config["flat_rate_amount"])
-        if (
-            dict(json.loads(server_config["level_multipliers"])).get(
-                str(character["level"])
-            )
-            is not None
+        if (json.loads(server_config["level_multipliers"])).get(
+            str(character["level"]) is not None
         ):
-            experience = int(
-                experience
-                * float(
-                    json.loads(server_config["level_multipliers"])[
-                        f"{character['level']}"
-                    ]
-                )
+            experience = experience * float(
+                json.loads(server_config["level_multipliers"])[f"{character['level']}"]
             )
             # Multiplies experience by the level multiplier for the current level, if it exists.
-        if (
-            dict(json.loads(server_config["channel_multipliers"])).get(
-                str(ctx.channel.id)
-            )
-            is not None
-        ):
-            experience = int(
-                experience
-                * float(
-                    json.loads(server_config["level_multipliers"])[f"{ctx.channel.id}"]
-                )
+        if isinstance(ctx.channel, disnake.Thread):
+            chan = ctx.channel.parent.id
+        else:
+            chan = ctx.channel.id
+        if json.loads(server_config["channel_multipliers"]).get(str(chan)) is not None:
+            experience = experience * float(
+                json.loads(server_config["channel_multipliers"])[f"{chan}"]
             )
             # Multiplies experience by the channel multiplier for the channel in which the message was sent, if it
             # exists.
@@ -301,8 +286,8 @@ FROM server_config WHERE guild_id = ?",
         ).items():
             for role_in_author in ctx.author.roles:
                 if role_in_author.id == int(role_multiplied):
-                    experience = int(
-                        experience * float(multiplier)
+                    experience = experience * float(
+                        multiplier
                     )  # Multiplies experience by the role multiplier for
                     # every role that the user has that has a multiplier.
         min_wiggle = float(
@@ -317,11 +302,12 @@ FROM server_config WHERE guild_id = ?",
             "{:.2f}".format(float(random.uniform(min_wiggle, max_wiggle)))
         )  # Gets a random decimal to
         # the hundredths between the minimum and maximum wiggle.
-        experience = int(
+        experience = (
             experience * wiggle
         )  # Multiplies the experience by the random wiggle.
-        experience_gained = experience
-        experience = experience + int(
+        experience = round(experience)
+        experience_gained = int(experience)
+        experience = int(experience) + int(
             character["experience"]
         )  # Adds the existing experience to the total,
         # after all other math has been done.

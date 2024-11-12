@@ -16,6 +16,7 @@ class Help(commands.Cog):
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         if source == "slash":

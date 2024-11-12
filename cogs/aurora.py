@@ -59,6 +59,7 @@ class Aurora(commands.Cog):
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -143,6 +144,7 @@ level, before multipliers.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -260,6 +262,7 @@ characters.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -340,6 +343,7 @@ characters.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -406,6 +410,7 @@ experience.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -594,6 +599,7 @@ experience determination likelihood.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -660,7 +666,7 @@ experience determination likelihood.""",
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
         thresholds = json.loads(server_config["experience_thresholds"])
-        if experience < int(thresholds[f"{level - 1}"]):
+        if level > 1 and experience < int(thresholds[f"{level - 1}"]):
             await EmbedBuilder.embed_builder(
                 ctx=src,
                 custom_color=None,
@@ -742,6 +748,7 @@ experience determination likelihood.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -779,7 +786,7 @@ flat_rate_toggle.""",
                 custom_title=None,
                 description="Flat rate is too high!",
                 fields=None,
-                footer_text="For no particular reason, the maxmimum amount for a flat rate is 9,999.",
+                footer_text="For no particular reason, the maximum amount for a flat rate is 9,999.",
                 status="alert",
             )
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
@@ -802,7 +809,7 @@ flat_rate_toggle.""",
         cur = con.cursor()
         cur.execute(
             "UPDATE server_config SET flat_rate_amount = ? WHERE guild_id = ?",
-            [time_between, src.guild.id],
+            [flat_amount, src.guild.id],
         )
         con.commit()
         con.close()
@@ -823,6 +830,7 @@ flat_rate_toggle.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -868,7 +876,7 @@ flat_rate_toggle.""",
             flat_rate_toggle = 1
         cur.execute(
             "UPDATE server_config SET flat_rate_toggle = ? WHERE guild_id = ?",
-            [dm_choose, src.guild.id],
+            [flat_rate_toggle, src.guild.id],
         )
         con.commit()
         con.close()
@@ -889,6 +897,7 @@ flat_rate_toggle.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1042,7 +1051,14 @@ ignored channels.""",
                 break
         else:
             channels = json.loads(server_config["ignored_channels"])
-            channels.append(channel.id)
+            if isinstance(channel, disnake.CategoryChannel):
+                for channel_in_category in channel.text_channels:
+                    if channel_in_category.id in channels:
+                        pass
+                    else:
+                        channels.append(channel_in_category.id)
+            else:
+                channels.append(channel.id)
             channels = json.dumps(channels)
         try:
             con = sqlite3.connect("server_config.db", timeout=30.0)
@@ -1083,6 +1099,7 @@ ignored channels.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1270,6 +1287,7 @@ ignored roles.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1389,6 +1407,7 @@ characters.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1458,6 +1477,7 @@ level of the respective member/character.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1593,6 +1613,7 @@ level of the respective member/character.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1682,6 +1703,7 @@ level of the respective member/character.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1794,6 +1816,7 @@ than each previous.\nPlease do not forget to update the thresholds!""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1886,7 +1909,7 @@ than each previous.\nPlease do not forget to update the thresholds!""",
             await response.edit(embed=EmbedBuilder.embed)
             return
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             await EmbedBuilder.embed_builder(
@@ -1979,6 +2002,7 @@ than each previous.\nPlease do not forget to update the thresholds!""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2068,6 +2092,7 @@ than each previous.\nPlease do not forget to update the thresholds!""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2150,6 +2175,7 @@ characters permitted per message.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2219,6 +2245,7 @@ long, including spaces.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2288,6 +2315,7 @@ long, including spaces.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2406,6 +2434,7 @@ characters.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2453,7 +2482,8 @@ characters.""",
         con.row_factory = sqlite3.Row
         cur = con.cursor()
         cur.execute(
-            """SELECT maximum_level, experience_thresholds, tier_thresholds FROM server_config WHERE guild_id = ?""",
+            """SELECT starting_level, maximum_level, experience_thresholds, tier_thresholds FROM server_config \
+WHERE guild_id = ?""",
             [src.guild.id],
         )
         server_config = [dict(value) for value in cur.fetchall()][0]
@@ -2522,6 +2552,7 @@ characters.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2668,6 +2699,7 @@ characters.""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -2995,7 +3027,9 @@ per message.""",
     )
     @commands.guild_only()
     @commands.default_member_permissions(manage_guild=True)
-    async def ignore_channel_slash(self, inter, channel: disnake.TextChannel):
+    async def ignore_channel_slash(
+        self, inter, channel: disnake.TextChannel | disnake.CategoryChannel
+    ):
         """
         Parameters
         ----------
@@ -3015,7 +3049,9 @@ per message.""",
         usage="ignore_channel <channel.Mention>",
     )
     @commands.guild_only()
-    async def ignore_channel_message(self, ctx, channel: disnake.TextChannel):
+    async def ignore_channel_message(
+        self, ctx, channel: disnake.TextChannel | disnake.CategoryChannel
+    ):
         await self.ignore_channel(
             ctx=ctx, inter=None, channel=channel, source="message"
         )

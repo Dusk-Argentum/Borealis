@@ -82,6 +82,7 @@ class Characters(commands.Cog):
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         elif source == "bChar":
@@ -145,7 +146,7 @@ class Characters(commands.Cog):
             return
         character = None
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             character_name = None
@@ -288,6 +289,7 @@ class Characters(commands.Cog):
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         if character_name is not None and character_name[0].isupper() is False:
@@ -373,7 +375,7 @@ characters.""",
             return
         character = None
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             character_name = None
@@ -635,6 +637,7 @@ character_name = ?""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         if character_name is not None and character_name[0].isupper() is False:
@@ -691,7 +694,7 @@ character_name = ?""",
             return
         character = None
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             character_name = None
@@ -799,6 +802,7 @@ character_name = ?""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         if character_name is not None and character_name[0].isupper() is False:
@@ -923,7 +927,7 @@ character_name = ?""",
             return
         character = None
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             character_name = None
@@ -1072,6 +1076,7 @@ is set to True by an administrator."""
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         if character_name is not None and character_name[0].isupper() is False:
@@ -1128,7 +1133,7 @@ is set to True by an administrator."""
             return
         character = None
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             character_name = None
@@ -1229,6 +1234,7 @@ is set to True by an administrator."""
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         if character_name is not None and character_name[0].isupper() is False:
@@ -1244,11 +1250,13 @@ is set to True by an administrator."""
             status="waiting",
         )
         response = await src.send(embed=EmbedBuilder.embed)
+        print("Post src send")
         if source == "slash":
             response = inter
             src.edit = inter.edit_original_response
         if player is None:
             player = src.author
+        print("if player none")
         try:
             con = sqlite3.connect("characters.db", timeout=30.0)
         except OperationalError:
@@ -1273,6 +1281,7 @@ characters WHERE player_id = ? AND guild_id = ?""",
         )
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
+        print("character sql query")
         try:
             con = sqlite3.connect("server_config.db", timeout=30.0)
         except OperationalError:
@@ -1296,6 +1305,7 @@ characters WHERE player_id = ? AND guild_id = ?""",
         )
         server_config = [dict(value) for value in cur.fetchall()][0]
         con.close()
+        print("server config query")
         if not characters:
             await EmbedBuilder.embed_builder(
                 ctx=src,
@@ -1310,10 +1320,11 @@ characters WHERE player_id = ? AND guild_id = ?""",
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             character = None
+        print("character match")
         exp_thresholds = json.loads(server_config["experience_thresholds"])
         tier_thresholds = json.loads(server_config["tier_thresholds"])
         if character is not None:
@@ -1332,6 +1343,7 @@ characters WHERE player_id = ? AND guild_id = ?""",
             nicks = []
             for nick in json.loads(character["nicks"]):
                 nicks.append(nick)
+            print("channels and nicks char found")
             fields = [
                 {
                     "inline": True,
@@ -1362,6 +1374,7 @@ Tier: {character["level"]}/{tier_thresholds[f"{int(character['tier']) + 1}"]
 ACTIVE (+20 EDL): {character["active"]}\nDM (+50 EDL): {character["dm"]}""",
                 },
             ]
+            print("fields char found ")
             await EmbedBuilder.embed_builder(
                 ctx=src,
                 custom_color=None,
@@ -1377,6 +1390,7 @@ ACTIVE (+20 EDL): {character["active"]}\nDM (+50 EDL): {character["dm"]}""",
         elif character is None:
             fields = []
             for character in characters:
+                print("character not found loop")
                 level_percent = None
                 if character["level"] < server_config["maximum_level"]:
                     level_percent = f"""{int(((int(character["experience"]) -
@@ -1396,17 +1410,19 @@ ACTIVE (+20 EDL): {character["active"]}\nDM (+50 EDL): {character["dm"]}""",
 **Level:** {character["level"]}\n**Tier:** {character["tier"]}""",
                     }
                 )
+                print("field not found overview")
             await EmbedBuilder.embed_builder(
                 ctx=src,
                 custom_color=None,
                 custom_thumbnail=None,
                 custom_title=f"{player.nick}'s Characters [Overview]",
                 description="""To view in-depth information about a specific character, specify the character's name \
-in the `character_name` argument. Be sure to use quotes!""",
+in the `character_name` argument. If not using a Slash Command, be sure to use quotes!""",
                 fields=fields,
                 footer_text="Thank you for using Borealis!",
                 status="success",
             )
+            print("char not found before edit")
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
 
@@ -1415,6 +1431,7 @@ in the `character_name` argument. Be sure to use quotes!""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         await EmbedBuilder.embed_builder(
@@ -1500,7 +1517,7 @@ no_doubles.png?ex=6700ebf0&is=66ff9a70&hm=63351b38b949988071696502b0f101edca7f02
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 await EmbedBuilder.embed_builder(
                     ctx=src,
                     custom_color=None,
@@ -1761,6 +1778,7 @@ function without it!""",
         src = None
         if source == "slash":
             src = inter
+            await inter.response.defer()
         elif source == "message":
             src = ctx
         if character_name is not None and character_name[0].isupper() is False:
@@ -1832,7 +1850,7 @@ function without it!""",
             return
         character = None
         for character in characters:
-            if character["character_name"] == character_name:
+            if character["character_name"].lower() == character_name.lower():
                 break
         else:
             character_name = None
