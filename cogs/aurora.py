@@ -1909,7 +1909,10 @@ than each previous.\nPlease do not forget to update the thresholds!""",
             await response.edit(embed=EmbedBuilder.embed)
             return
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             await EmbedBuilder.embed_builder(

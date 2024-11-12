@@ -75,13 +75,17 @@ function without it!""",
                 ):
                     return
             commands_list = []
-            for command in self.bot.get_cog(cog).walk_commands():
+            for command in self.bot.get_cog(cog).get_slash_commands():
+                command = src.guild.get_command_named(command.name)
                 commands_list.append(
-                    f"""**{command.name}** | {command.help} (`/{command.usage}`)"""
+                    f"""</{command.name}:{command.id}> | {command.description}"""
                 )
-                next_command = next(self.bot.get_cog(cog).walk_commands())
-                next_command_append = f"**{next_command.name}** | {next_command.help} (`/{next_command.usage}`)"
-                if len(str(commands_list)) + len(str(next_command_append)) > 1024:
+                next_command = next(iter(self.bot.get_cog(cog).get_slash_commands()))
+                command = src.guild.get_command_named(next_command.name)
+                next_command_append = (
+                    f"</{command.name}:{command.id}> | {command.description}"
+                )
+                if (len(str(commands_list)) + len(str(next_command_append))) > 1024:
                     fields.append(
                         {
                             "inline": False,

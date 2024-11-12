@@ -6,11 +6,11 @@ class Dev(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(aliases=["a2a"], brief="b", help="c", name="test", usage="e")
-    @commands.guild_only()
-    async def test(self, ctx):
-        # print("test")
-        return
+    # @commands.command(aliases=["a2a"], brief="b", help="c", name="test", usage="e")
+    # @commands.guild_only()
+    # async def test(self, ctx):
+    #     # print("test")
+    #     return
 
 
 def setup(bot):

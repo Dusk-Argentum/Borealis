@@ -146,7 +146,10 @@ class Characters(commands.Cog):
             return
         character = None
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             character_name = None
@@ -375,7 +378,10 @@ characters.""",
             return
         character = None
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             character_name = None
@@ -694,7 +700,10 @@ character_name = ?""",
             return
         character = None
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             character_name = None
@@ -927,7 +936,10 @@ character_name = ?""",
             return
         character = None
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             character_name = None
@@ -1133,7 +1145,10 @@ is set to True by an administrator."""
             return
         character = None
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             character_name = None
@@ -1320,7 +1335,10 @@ characters WHERE player_id = ? AND guild_id = ?""",
             await response.edit(content=None, embed=EmbedBuilder.embed, view=None)
             return
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             character = None
@@ -1517,7 +1535,10 @@ no_doubles.png?ex=6700ebf0&is=66ff9a70&hm=63351b38b949988071696502b0f101edca7f02
         characters = [dict(value) for value in cur.fetchall()]
         con.close()
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 await EmbedBuilder.embed_builder(
                     ctx=src,
                     custom_color=None,
@@ -1850,7 +1871,10 @@ function without it!""",
             return
         character = None
         for character in characters:
-            if character["character_name"].lower() == character_name.lower():
+            if (
+                character_name is not None
+                and character["character_name"].lower() == character_name.lower()
+            ):
                 break
         else:
             character_name = None

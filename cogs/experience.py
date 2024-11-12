@@ -366,10 +366,10 @@ AND character_name = ?""",
         )
         con.commit()
         con.close()
-        if ctx.channel.id in [1303473754638258176, 1291623487990927411]:
-            await ctx.channel.send(
-                f"{rewarded} just gained {experience_gained} experience for that message!"
-            )
+        # if ctx.channel.id in [1303473754638258176, 1291623487990927411]:
+        #     await ctx.channel.send(
+        #         f"{rewarded} just gained {experience_gained} experience for that message!"
+        #     )
         if (
             experience
             >= (json.loads(server_config["experience_thresholds"]))[
